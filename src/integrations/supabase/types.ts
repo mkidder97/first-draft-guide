@@ -14,7 +14,74 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      agreements: {
+        Row: {
+          client_id: string
+          created_at: string
+          duration: string | null
+          frequency: string | null
+          id: string
+          pdf_url: string | null
+          scope_notes: string | null
+          service_type: string
+          signed_at: string | null
+          status: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          duration?: string | null
+          frequency?: string | null
+          id?: string
+          pdf_url?: string | null
+          scope_notes?: string | null
+          service_type: string
+          signed_at?: string | null
+          status?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          duration?: string | null
+          frequency?: string | null
+          id?: string
+          pdf_url?: string | null
+          scope_notes?: string | null
+          service_type?: string
+          signed_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agreements_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clients: {
+        Row: {
+          address: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
