@@ -82,13 +82,15 @@ Deno.serve(async (req) => {
 {
   "clientName": "string - the client or company name",
   "address": "string - the property address",
-  "serviceType": "string - must be exactly one of: annual_pm, due_diligence, survey, storm, construction_management",
+  "serviceTypes": ["array of strings - each must be exactly one of: annual_pm, due_diligence, survey, storm, construction_management"],
+  "buildingCount": "number or null - total number of buildings if mentioned",
+  "markets": "string or null - markets or geographic areas the client operates in",
   "duration": "string or null - contract duration if mentioned",
   "frequency": "string or null - service frequency if mentioned",
   "scopeNotes": "string or null - any additional scope details"
 }
 
-If a field is not mentioned, use null. For serviceType, pick the closest match from the allowed values. Return ONLY the JSON object, no markdown, no explanation.`,
+If a field is not mentioned, use null. For serviceTypes, pick the closest match(es) from the allowed values and always return an array (even if only one). Return ONLY the JSON object, no markdown, no explanation.`,
         }),
       }
     );
