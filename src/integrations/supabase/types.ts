@@ -64,20 +64,26 @@ export type Database = {
       clients: {
         Row: {
           address: string
+          building_count: number | null
           created_at: string
           id: string
+          markets: string | null
           name: string
         }
         Insert: {
           address: string
+          building_count?: number | null
           created_at?: string
           id?: string
+          markets?: string | null
           name: string
         }
         Update: {
           address?: string
+          building_count?: number | null
           created_at?: string
           id?: string
+          markets?: string | null
           name?: string
         }
         Relationships: []
