@@ -10,6 +10,7 @@ import Auth from "./pages/Auth";
 import Index from "./pages/Index";
 import NewClient from "./pages/NewClient";
 import Agreements from "./pages/Agreements";
+import AgreementDetail from "./pages/AgreementDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
