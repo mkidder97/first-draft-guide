@@ -1,5 +1,3 @@
-// Env required: VITE_N8N_WEBHOOK_URL = https://mkidder97.app.n8n.cloud/webhook/src-client-portal
-
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
