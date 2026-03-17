@@ -211,11 +211,30 @@ export default function AgreementDetail() {
 
   // ─── Webhook payload builder ─────────────────────────────────
   function buildWebhookPayload() {
+    const ctx = createPDFContext();
+    ctx.addHeader();
+    ctx.addClientInfo([
+      ["CLIENT:", client?.name || "—"],
+      ["PROPERTY ADDRESS:", client?.address || "—"],
+      ["AGREEMENT DATE:", format(new Date(agreement!.created_at), "MMMM d, yyyy")],
+      ["DURATION:", agreement!.duration || "—"],
+      ["FREQUENCY:", agreement!.frequency || "—"],
+      ["SERVICE TYPE:", formatServiceType(agreement!.service_type)],
+    ]);
+    ctx.addHeading("SCOPE OF SERVICES");
+    ctx.addBody(SCOPE_PARAGRAPHS[agreement!.service_type] || "Scope to be determined.");
+    if (agreement!.scope_notes) ctx.addBody("Additional Notes: " + agreement!.scope_notes);
+    ctx.addStandardTerms();
+    ctx.addSignatures();
+    const dataUri = ctx.doc.output("datauristring");
+    const pdfBase64 = dataUri.replace(/^data:application\/pdf;filename=generated\.pdf;base64,/, "");
+
     return {
       clientName: client?.name || "",
       address: client?.address || "",
       serviceType: agreement?.service_type || "",
       agreementId: agreement?.id || "",
+      pdfBase64,
     };
   }
 
