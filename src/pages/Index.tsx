@@ -45,7 +45,7 @@ type Agreement = {
   [key: string]: unknown;
 };
 
-type ClientWithAgreements = {
+type Client = {
   id: string;
   name: string;
   address: string;
@@ -55,56 +55,7 @@ type ClientWithAgreements = {
   agreements: Agreement[];
 };
 
-export default function Dashboard() {
-  const [search, setSearch] = useState("");
-  const queryClient = useQueryClient();
-
-  const { data: clients, isLoading } = useQuery({
-    queryKey: ["dashboard-clients"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("clients")
-        .select("*, agreements(*)")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as ClientWithAgreements[];
-    },
-  });
-
-  const updateStatus = useMutation({
-    mutationFn: async ({ agreementId, status }: { agreementId: string; status: string }) => {
-      const updates: Record<string, unknown> = { status };
-      if (status === "signed") updates.signed_at = new Date().toISOString();
-      const { error } = await supabase.from("agreements").update(updates).eq("id", agreementId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["dashboard-clients"] });
-      toast({ title: "Status updated" });
-    },
-    onError: () => {
-      toast({ title: "Failed to update status", variant: "destructive" });
-    },
-  });
-
-  // Derive stats
-  const allAgreements = clients?.flatMap((c) => c.agreements) ?? [];
-  const totalClients = clients?.length ?? 0;
-  const draftCount = allAgreements.filter((a) => a.status === "draft").length;
-  const sentCount = allAgreements.filter((a) => a.status === "sent").length;
-  const signedCount = allAgreements.filter((a) => a.status === "signed").length;
-
-  // Filter
-  const filtered = clients?.filter((c) => {
-    const q = search.toLowerCase();
-    return c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q);
-  }) ?? [];
-
-  // Helper: most recent agreement
-  function latestAgreement(agreements: Agreement[]) {
-    if (!agreements.length) return null;
-    return agreements.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-  }
+type FlatRow = Agreement & { client: Omit<Client, "agreements"> };
 
   const stats = [
     { label: "Total Clients", value: totalClients, icon: Users },
