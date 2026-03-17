@@ -1,6 +1,7 @@
 import { Home, PlusCircle, FileText, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
+import srcLogo from "@/assets/src-logo.png";
 import {
   Sidebar,
   SidebarContent,
@@ -30,11 +31,14 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="p-4">
-        {!collapsed && (
-          <h1 className="text-lg font-bold text-sidebar-primary-foreground">
-            SRC Client Portal
-          </h1>
-        )}
+        <div className="flex items-center gap-3">
+          <img src={srcLogo} alt="SRC" className="h-8 w-8 rounded" />
+          {!collapsed && (
+            <h1 className="text-sm font-bold text-sidebar-primary-foreground leading-tight">
+              SRC Client Portal
+            </h1>
+          )}
+        </div>
       </SidebarHeader>
 
       <SidebarContent>
