@@ -6,13 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Sparkles } from "lucide-react";
@@ -28,7 +22,9 @@ const SERVICE_TYPES = [
 interface ClientFields {
   clientName: string;
   address: string;
-  serviceType: string;
+  serviceTypes: string[];
+  buildingCount: string;
+  markets: string;
   duration: string;
   frequency: string;
   scopeNotes: string;
@@ -37,7 +33,9 @@ interface ClientFields {
 const emptyFields: ClientFields = {
   clientName: "",
   address: "",
-  serviceType: "",
+  serviceTypes: [],
+  buildingCount: "",
+  markets: "",
   duration: "",
   frequency: "",
   scopeNotes: "",
@@ -52,8 +50,17 @@ export default function NewClient() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
-  const updateField = (key: keyof ClientFields, value: string) => {
+  const updateField = (key: keyof ClientFields, value: string | string[]) => {
     setFields((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const toggleServiceType = (value: string) => {
+    setFields((prev) => ({
+      ...prev,
+      serviceTypes: prev.serviceTypes.includes(value)
+        ? prev.serviceTypes.filter((s) => s !== value)
+        : [...prev.serviceTypes, value],
+    }));
   };
 
   const handleParse = async () => {
@@ -72,7 +79,9 @@ export default function NewClient() {
       setFields({
         clientName: data.clientName || "",
         address: data.address || "",
-        serviceType: data.serviceType || "",
+        serviceTypes: Array.isArray(data.serviceTypes) ? data.serviceTypes : [],
+        buildingCount: data.buildingCount != null ? String(data.buildingCount) : "",
+        markets: data.markets || "",
         duration: data.duration || "",
         frequency: data.frequency || "",
         scopeNotes: data.scopeNotes || "",
@@ -86,8 +95,8 @@ export default function NewClient() {
   };
 
   const handleSubmit = async () => {
-    if (!fields.clientName || !fields.address || !fields.serviceType) {
-      setSubmitError("Client Name, Address, and Service Type are required.");
+    if (!fields.clientName || !fields.address || fields.serviceTypes.length === 0) {
+      setSubmitError("Client Name, Address, and at least one Service Type are required.");
       return;
     }
 
@@ -97,28 +106,36 @@ export default function NewClient() {
     try {
       const { data: client, error: clientError } = await supabase
         .from("clients")
-        .insert({ name: fields.clientName, address: fields.address })
+        .insert({
+          name: fields.clientName,
+          address: fields.address,
+          building_count: fields.buildingCount ? parseInt(fields.buildingCount, 10) : null,
+          markets: fields.markets || null,
+        })
         .select("id")
         .single();
 
       if (clientError) throw clientError;
 
+      // Insert one agreement per service type
+      const agreementRows = fields.serviceTypes.map((st) => ({
+        client_id: client.id,
+        service_type: st,
+        duration: fields.duration || null,
+        frequency: fields.frequency || null,
+        scope_notes: fields.scopeNotes || null,
+        status: "draft" as const,
+      }));
+
       const { error: agreementError } = await supabase
         .from("agreements")
-        .insert({
-          client_id: client.id,
-          service_type: fields.serviceType,
-          duration: fields.duration || null,
-          frequency: fields.frequency || null,
-          scope_notes: fields.scopeNotes || null,
-          status: "draft",
-        });
+        .insert(agreementRows);
 
       if (agreementError) throw agreementError;
 
       toast({
         title: "Client created",
-        description: `${fields.clientName} has been added with a draft agreement.`,
+        description: `${fields.clientName} added with ${fields.serviceTypes.length} draft agreement(s).`,
       });
 
       navigate("/agreements");
@@ -129,9 +146,6 @@ export default function NewClient() {
       setIsSubmitting(false);
     }
   };
-
-  const hasReviewData =
-    fields.clientName || fields.address || fields.serviceType;
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -157,7 +171,7 @@ export default function NewClient() {
             </CardHeader>
             <CardContent className="space-y-4">
               <Textarea
-                placeholder="e.g. New client Acme Corp at 123 Main St, Miami FL 33101. They need annual PM service, quarterly visits, 2-year contract. Focus on roof and exterior inspections."
+                placeholder="e.g. New client Acme Corp at 123 Main St, Miami FL 33101. They have 12 buildings across Miami and Dallas markets. They need annual PM and due diligence services, quarterly visits, 2-year contract."
                 className="min-h-[140px]"
                 value={aiMessage}
                 onChange={(e) => setAiMessage(e.target.value)}
@@ -191,7 +205,7 @@ export default function NewClient() {
               <CardTitle className="text-lg">Enter client details</CardTitle>
             </CardHeader>
             <CardContent>
-              <FieldsForm fields={fields} updateField={updateField} />
+              <FieldsForm fields={fields} updateField={updateField} toggleServiceType={toggleServiceType} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -203,7 +217,7 @@ export default function NewClient() {
           <CardTitle className="text-lg">Review &amp; Save</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <FieldsForm fields={fields} updateField={updateField} />
+          <FieldsForm fields={fields} updateField={updateField} toggleServiceType={toggleServiceType} />
           {submitError && (
             <p className="text-sm text-destructive">{submitError}</p>
           )}
@@ -230,9 +244,11 @@ export default function NewClient() {
 function FieldsForm({
   fields,
   updateField,
+  toggleServiceType,
 }: {
   fields: ClientFields;
-  updateField: (key: keyof ClientFields, value: string) => void;
+  updateField: (key: keyof ClientFields, value: string | string[]) => void;
+  toggleServiceType: (value: string) => void;
 }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -253,22 +269,36 @@ function FieldsForm({
         />
       </div>
       <div className="space-y-2">
-        <Label>Service Type *</Label>
-        <Select
-          value={fields.serviceType}
-          onValueChange={(v) => updateField("serviceType", v)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select service type" />
-          </SelectTrigger>
-          <SelectContent>
-            {SERVICE_TYPES.map((st) => (
-              <SelectItem key={st.value} value={st.value}>
-                {st.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Label>Building Count</Label>
+        <Input
+          type="number"
+          min="0"
+          value={fields.buildingCount}
+          onChange={(e) => updateField("buildingCount", e.target.value)}
+          placeholder="e.g. 12"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Markets</Label>
+        <Input
+          value={fields.markets}
+          onChange={(e) => updateField("markets", e.target.value)}
+          placeholder="e.g. Miami, Dallas, Atlanta"
+        />
+      </div>
+      <div className="space-y-3 sm:col-span-2">
+        <Label>Service Types *</Label>
+        <div className="flex flex-wrap gap-4">
+          {SERVICE_TYPES.map((st) => (
+            <label key={st.value} className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={fields.serviceTypes.includes(st.value)}
+                onCheckedChange={() => toggleServiceType(st.value)}
+              />
+              <span className="text-sm">{st.label}</span>
+            </label>
+          ))}
+        </div>
       </div>
       <div className="space-y-2">
         <Label>Duration</Label>
