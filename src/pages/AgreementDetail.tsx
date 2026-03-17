@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft, Download, FileStack } from "lucide-react";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
 
@@ -33,17 +33,6 @@ function formatServiceType(type: string) {
   return SERVICE_LABELS[type] || type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function statusVariant(status: string) {
-  switch (status) {
-    case "signed":
-      return "default";
-    case "sent":
-      return "secondary";
-    default:
-      return "outline";
-  }
-}
-
 function statusColor(status: string) {
   switch (status) {
     case "signed":
@@ -54,6 +43,111 @@ function statusColor(status: string) {
       return "";
   }
 }
+
+// ─── PDF helpers ───────────────────────────────────────────────
+
+function createPDFContext() {
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 72;
+  const contentWidth = pageWidth - margin * 2;
+  let y = margin;
+
+  function checkPage(needed: number) {
+    if (y + needed > doc.internal.pageSize.getHeight() - margin) {
+      doc.addPage();
+      y = margin;
+    }
+  }
+
+  function addHeading(text: string) {
+    checkPage(30);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(text, margin, y);
+    y += 20;
+  }
+
+  function addBody(text: string) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    const lines = doc.splitTextToSize(text, contentWidth);
+    checkPage(lines.length * 14 + 10);
+    doc.text(lines, margin, y);
+    y += lines.length * 14 + 10;
+  }
+
+  function addHeader() {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("SOUTHERN ROOF CONSULTANTS", pageWidth / 2, y, { align: "center" });
+    y += 22;
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Professional Roofing Services Agreement", pageWidth / 2, y, { align: "center" });
+    y += 30;
+  }
+
+  function addClientInfo(info: [string, string][]) {
+    doc.setFontSize(10);
+    info.forEach(([label, value]) => {
+      checkPage(16);
+      doc.setFont("helvetica", "bold");
+      doc.text(label, margin, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(value, margin + 130, y);
+      y += 16;
+    });
+    y += 14;
+  }
+
+  function addStandardTerms() {
+    addHeading("REPORTING");
+    addBody(
+      "A written report will be delivered within five (5) business days of the completed inspection. The report will include photographic documentation and a condition assessment of the inspected roofing systems."
+    );
+    addHeading("CLIENT RESPONSIBILITIES");
+    addBody(
+      "Client shall provide reasonable access to all areas to be inspected and shall notify SRC of any known hazards, restricted areas, or special access requirements prior to the scheduled inspection date."
+    );
+    addHeading("FEES AND PAYMENT");
+    addBody(
+      "Fees for services shall be as set forth in the accompanying proposal. Invoices are due within thirty (30) days of issuance. SRC reserves the right to suspend services on accounts more than sixty (60) days past due."
+    );
+    addHeading("LIMITATION OF LIABILITY");
+    addBody(
+      "SRC's liability under this agreement shall be limited to the total fees paid by the client for the applicable services. SRC shall not be liable for pre-existing conditions or latent defects not reasonably discoverable during a visual inspection."
+    );
+    addHeading("TERM AND TERMINATION");
+    addBody(
+      "Either party may terminate this agreement with thirty (30) days written notice. Upon termination, any outstanding fees for services already rendered shall remain due and payable."
+    );
+    addHeading("GOVERNING LAW");
+    addBody("This agreement shall be governed by and construed in accordance with the laws of the State of Texas.");
+  }
+
+  function addSignatures() {
+    y += 20;
+    checkPage(100);
+    addHeading("SIGNATURES");
+    y += 10;
+    const sigLine = (label: string, x: number) => {
+      doc.setDrawColor(0);
+      doc.line(x, y, x + 200, y);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(label, x, y + 14);
+      doc.text("Date: _______________", x, y + 28);
+    };
+    sigLine("Southern Roof Consultants", margin);
+    sigLine("Client", margin + 260);
+    y += 50;
+  }
+
+  return { doc, addHeader, addClientInfo, addHeading, addBody, addStandardTerms, addSignatures, checkPage, getY: () => y, setY: (v: number) => { y = v; } };
+}
+
+// ─── Component ─────────────────────────────────────────────────
 
 export default function AgreementDetail() {
   const { id } = useParams<{ id: string }>();
@@ -72,128 +166,69 @@ export default function AgreementDetail() {
     enabled: !!id,
   });
 
+  // Fetch sibling agreements for the same client (for combined PDF)
+  const { data: siblingAgreements } = useQuery({
+    queryKey: ["client-agreements", agreement?.client_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("agreements")
+        .select("*")
+        .eq("client_id", agreement!.client_id)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!agreement?.client_id,
+  });
+
+  const client = agreement?.clients as { name: string; address: string } | null;
+  const hasCombined = (siblingAgreements?.length ?? 0) >= 2;
+
   function generatePDF() {
     if (!agreement) return;
-    const client = agreement.clients as { name: string; address: string } | null;
-    const doc = new jsPDF({ unit: "pt", format: "letter" });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 72;
-    const contentWidth = pageWidth - margin * 2;
-    let y = margin;
-
-    function checkPage(needed: number) {
-      if (y + needed > doc.internal.pageSize.getHeight() - margin) {
-        doc.addPage();
-        y = margin;
-      }
-    }
-
-    function addHeading(text: string) {
-      checkPage(30);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.text(text, margin, y);
-      y += 20;
-    }
-
-    function addBody(text: string) {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      const lines = doc.splitTextToSize(text, contentWidth);
-      checkPage(lines.length * 14 + 10);
-      doc.text(lines, margin, y);
-      y += lines.length * 14 + 10;
-    }
-
-    // Header
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text("SOUTHERN ROOF CONSULTANTS", pageWidth / 2, y, { align: "center" });
-    y += 22;
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Professional Roofing Services Agreement", pageWidth / 2, y, { align: "center" });
-    y += 30;
-
-    // Client info block
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    const infoLines = [
+    const ctx = createPDFContext();
+    ctx.addHeader();
+    ctx.addClientInfo([
       ["CLIENT:", client?.name || "—"],
       ["PROPERTY ADDRESS:", client?.address || "—"],
       ["AGREEMENT DATE:", format(new Date(agreement.created_at), "MMMM d, yyyy")],
       ["DURATION:", agreement.duration || "—"],
       ["FREQUENCY:", agreement.frequency || "—"],
       ["SERVICE TYPE:", formatServiceType(agreement.service_type)],
-    ];
-    infoLines.forEach(([label, value]) => {
-      checkPage(16);
-      doc.setFont("helvetica", "bold");
-      doc.text(label, margin, y);
-      doc.setFont("helvetica", "normal");
-      doc.text(value, margin + 130, y);
-      y += 16;
-    });
-    y += 14;
-
-    // Scope
-    addHeading("SCOPE OF SERVICES");
-    addBody(SCOPE_PARAGRAPHS[agreement.service_type] || "Scope to be determined.");
-
-    if (agreement.scope_notes) {
-      addBody("Additional Notes: " + agreement.scope_notes);
-    }
-
-    // Standard terms
-    addHeading("REPORTING");
-    addBody(
-      "A written report will be delivered within five (5) business days of the completed inspection. The report will include photographic documentation and a condition assessment of the inspected roofing systems."
-    );
-
-    addHeading("CLIENT RESPONSIBILITIES");
-    addBody(
-      "Client shall provide reasonable access to all areas to be inspected and shall notify SRC of any known hazards, restricted areas, or special access requirements prior to the scheduled inspection date."
-    );
-
-    addHeading("FEES AND PAYMENT");
-    addBody(
-      "Fees for services shall be as set forth in the accompanying proposal. Invoices are due within thirty (30) days of issuance. SRC reserves the right to suspend services on accounts more than sixty (60) days past due."
-    );
-
-    addHeading("LIMITATION OF LIABILITY");
-    addBody(
-      "SRC's liability under this agreement shall be limited to the total fees paid by the client for the applicable services. SRC shall not be liable for pre-existing conditions or latent defects not reasonably discoverable during a visual inspection."
-    );
-
-    addHeading("TERM AND TERMINATION");
-    addBody(
-      "Either party may terminate this agreement with thirty (30) days written notice. Upon termination, any outstanding fees for services already rendered shall remain due and payable."
-    );
-
-    addHeading("GOVERNING LAW");
-    addBody("This agreement shall be governed by and construed in accordance with the laws of the State of Texas.");
-
-    // Signatures
-    y += 20;
-    checkPage(100);
-    addHeading("SIGNATURES");
-    y += 10;
-
-    const sigLine = (label: string, x: number) => {
-      doc.setDrawColor(0);
-      doc.line(x, y, x + 200, y);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.text(label, x, y + 14);
-      doc.text("Date: _______________", x, y + 28);
-    };
-
-    sigLine("Southern Roof Consultants", margin);
-    sigLine("Client", margin + 260);
-    y += 50;
-
+    ]);
+    ctx.addHeading("SCOPE OF SERVICES");
+    ctx.addBody(SCOPE_PARAGRAPHS[agreement.service_type] || "Scope to be determined.");
+    if (agreement.scope_notes) ctx.addBody("Additional Notes: " + agreement.scope_notes);
+    ctx.addStandardTerms();
+    ctx.addSignatures();
     const clientName = client?.name?.replace(/[^a-zA-Z0-9]/g, "_") || "agreement";
-    doc.save(`SRC_Agreement_${clientName}.pdf`);
+    ctx.doc.save(`SRC_Agreement_${clientName}.pdf`);
+  }
+
+  function generateCombinedPDF() {
+    if (!siblingAgreements || !client) return;
+    const ctx = createPDFContext();
+    ctx.addHeader();
+    ctx.addClientInfo([
+      ["CLIENT:", client.name],
+      ["PROPERTY ADDRESS:", client.address],
+      ["AGREEMENT DATE:", format(new Date(), "MMMM d, yyyy")],
+    ]);
+
+    // Each service type gets its own scope section
+    siblingAgreements.forEach((a, i) => {
+      if (i > 0) ctx.setY(ctx.getY() + 8);
+      ctx.addHeading(`SCOPE OF SERVICES — ${formatServiceType(a.service_type)}`);
+      ctx.addBody(SCOPE_PARAGRAPHS[a.service_type] || "Scope to be determined.");
+      if (a.duration) ctx.addBody("Duration: " + a.duration);
+      if (a.frequency) ctx.addBody("Frequency: " + a.frequency);
+      if (a.scope_notes) ctx.addBody("Additional Notes: " + a.scope_notes);
+    });
+
+    ctx.addStandardTerms();
+    ctx.addSignatures();
+    const clientName = client.name.replace(/[^a-zA-Z0-9]/g, "_");
+    ctx.doc.save(`SRC_Combined_Agreement_${clientName}.pdf`);
   }
 
   if (isLoading) {
@@ -211,8 +246,6 @@ export default function AgreementDetail() {
     );
   }
 
-  const client = agreement.clients as { name: string; address: string } | null;
-
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -227,10 +260,18 @@ export default function AgreementDetail() {
             {agreement.status.charAt(0).toUpperCase() + agreement.status.slice(1)}
           </Badge>
         </div>
-        <Button onClick={generatePDF} className="gap-2">
-          <Download className="h-4 w-4" />
-          Generate PDF
-        </Button>
+        <div className="flex items-center gap-2">
+          {hasCombined && (
+            <Button variant="outline" onClick={generateCombinedPDF} className="gap-2">
+              <FileStack className="h-4 w-4" />
+              Generate Combined PDF
+            </Button>
+          )}
+          <Button onClick={generatePDF} className="gap-2">
+            <Download className="h-4 w-4" />
+            Generate PDF
+          </Button>
+        </div>
       </div>
 
       <Card>

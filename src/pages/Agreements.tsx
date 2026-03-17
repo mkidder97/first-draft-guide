@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -5,13 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Eye } from "lucide-react";
 import { format } from "date-fns";
 
@@ -35,6 +34,8 @@ function statusColor(status: string) {
 }
 
 export default function Agreements() {
+  const [clientFilter, setClientFilter] = useState("all");
+
   const { data: agreements, isLoading } = useQuery({
     queryKey: ["agreements"],
     queryFn: async () => {
@@ -47,18 +48,49 @@ export default function Agreements() {
     },
   });
 
+  const uniqueClients = useMemo(() => {
+    if (!agreements) return [];
+    const names = new Set(
+      agreements.map((a) => (a.clients as { name: string } | null)?.name).filter(Boolean) as string[]
+    );
+    return Array.from(names).sort();
+  }, [agreements]);
+
+  const filtered = useMemo(() => {
+    if (!agreements) return [];
+    if (clientFilter === "all") return agreements;
+    return agreements.filter((a) => (a.clients as { name: string } | null)?.name === clientFilter);
+  }, [agreements, clientFilter]);
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-foreground mb-6">Agreements</h1>
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Service Agreements</CardTitle>
+          <Select value={clientFilter} onValueChange={setClientFilter}>
+            <SelectTrigger className="w-[200px] h-9 text-sm">
+              <SelectValue placeholder="Filter by Client" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Clients</SelectItem>
+              {uniqueClients.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <p className="text-muted-foreground">Loading…</p>
-          ) : !agreements?.length ? (
-            <p className="text-muted-foreground">No agreements yet. Create a client to get started.</p>
+          ) : !filtered?.length ? (
+            <p className="text-muted-foreground">
+              {clientFilter === "all"
+                ? "No agreements yet. Create a client to get started."
+                : "No agreements for this client."}
+            </p>
           ) : (
             <Table>
               <TableHeader>
@@ -71,7 +103,7 @@ export default function Agreements() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {agreements.map((a) => {
+                {filtered.map((a) => {
                   const clientName = (a.clients as { name: string } | null)?.name || "—";
                   return (
                     <TableRow key={a.id}>

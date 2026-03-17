@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,7 +12,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Users, FileText, Send, CheckCircle, Search, Plus } from "lucide-react";
+import {
+  Collapsible, CollapsibleTrigger, CollapsibleContent,
+} from "@/components/ui/collapsible";
+import { Users, FileText, Send, CheckCircle, Search, Plus, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 
@@ -55,10 +58,11 @@ type Client = {
   agreements: Agreement[];
 };
 
-type FlatRow = Agreement & { client: Omit<Client, "agreements"> };
+type ClientGroup = Omit<Client, "agreements"> & { agreements: Agreement[] };
 
 export default function Dashboard() {
   const [search, setSearch] = useState("");
+  const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
 
   const { data: clients, isLoading } = useQuery({
@@ -96,17 +100,29 @@ export default function Dashboard() {
   const sentCount = allAgreements.filter((a) => a.status === "sent").length;
   const signedCount = allAgreements.filter((a) => a.status === "signed").length;
 
-  // Flatten to one row per agreement
-  const flatRows: FlatRow[] = clients?.flatMap((c) => {
-    const { agreements, ...clientData } = c;
-    return agreements.map((a) => ({ ...a, client: clientData }));
-  }) ?? [];
-
-  // Filter by client name or address
-  const filtered = flatRows.filter((row) => {
+  // Filter clients by search and build groups
+  const filteredGroups: ClientGroup[] = useMemo(() => {
+    if (!clients) return [];
     const q = search.toLowerCase();
-    return row.client.name.toLowerCase().includes(q) || row.client.address.toLowerCase().includes(q);
-  });
+    return clients
+      .filter((c) => c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q))
+      .filter((c) => c.agreements.length > 0)
+      .map((c) => ({ ...c }));
+  }, [clients, search]);
+
+  // Expand all matching groups when search changes
+  useEffect(() => {
+    setExpandedClients(new Set(filteredGroups.map((g) => g.id)));
+  }, [filteredGroups]);
+
+  const toggleClient = (clientId: string) => {
+    setExpandedClients((prev) => {
+      const next = new Set(prev);
+      if (next.has(clientId)) next.delete(clientId);
+      else next.add(clientId);
+      return next;
+    });
+  };
 
   const stats = [
     { label: "Total Clients", value: totalClients, icon: Users },
@@ -165,63 +181,95 @@ export default function Dashboard() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Client Name</TableHead>
-                  <TableHead>Property Address</TableHead>
+                  <TableHead className="w-8" />
+                  <TableHead>Client / Service</TableHead>
+                  <TableHead>Address</TableHead>
                   <TableHead>Markets</TableHead>
                   <TableHead>Buildings</TableHead>
-                  <TableHead>Service Type</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead>Update Status</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {filtered.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="font-medium">
-                      <Link to={`/agreements/${row.id}`} className="text-primary hover:underline">
-                        {row.client.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{row.client.address}</TableCell>
-                    <TableCell>{row.client.markets || "—"}</TableCell>
-                    <TableCell>{row.client.building_count ?? "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="text-xs">
-                        {SERVICE_LABELS[row.service_type] || row.service_type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={statusColor(row.status)}>
-                        {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{format(new Date(row.created_at), "MMM d, yyyy")}</TableCell>
-                    <TableCell>
-                      <Select
-                        value={row.status}
-                        onValueChange={(val) => updateStatus.mutate({ agreementId: row.id, status: val })}
-                      >
-                        <SelectTrigger className="w-[110px] h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="draft">Draft</SelectItem>
-                          <SelectItem value="sent">Sent</SelectItem>
-                          <SelectItem value="signed">Signed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {filtered.length === 0 && (
+              {filteredGroups.length === 0 ? (
+                <TableBody>
                   <TableRow>
                     <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                       No agreements match your search.
                     </TableCell>
                   </TableRow>
-                )}
-              </TableBody>
+                </TableBody>
+              ) : (
+                filteredGroups.map((group) => {
+                  const isOpen = expandedClients.has(group.id);
+                  return (
+                    <TableBody key={group.id}>
+                      {/* Client header row */}
+                      <TableRow
+                        className="cursor-pointer hover:bg-muted/50 bg-muted/20"
+                        onClick={() => toggleClient(group.id)}
+                      >
+                        <TableCell className="w-8 px-2">
+                          <ChevronRight
+                            className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
+                          />
+                        </TableCell>
+                        <TableCell className="font-semibold">{group.name}</TableCell>
+                        <TableCell className="text-muted-foreground">{group.address}</TableCell>
+                        <TableCell className="text-muted-foreground">{group.markets || "—"}</TableCell>
+                        <TableCell className="text-muted-foreground">{group.building_count ?? "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {group.agreements.length} agreement{group.agreements.length !== 1 ? "s" : ""}
+                          </Badge>
+                        </TableCell>
+                        <TableCell />
+                        <TableCell />
+                      </TableRow>
+                      {/* Agreement rows */}
+                      {isOpen &&
+                        group.agreements
+                          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                          .map((a) => (
+                            <TableRow key={a.id} className="bg-background">
+                              <TableCell />
+                              <TableCell className="pl-8">
+                                <Link to={`/agreements/${a.id}`} className="text-primary hover:underline">
+                                  <Badge variant="secondary" className="text-xs">
+                                    {SERVICE_LABELS[a.service_type] || a.service_type}
+                                  </Badge>
+                                </Link>
+                              </TableCell>
+                              <TableCell />
+                              <TableCell />
+                              <TableCell />
+                              <TableCell>
+                                <Badge className={statusColor(a.status)}>
+                                  {a.status.charAt(0).toUpperCase() + a.status.slice(1)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{format(new Date(a.created_at), "MMM d, yyyy")}</TableCell>
+                              <TableCell>
+                                <Select
+                                  value={a.status}
+                                  onValueChange={(val) => updateStatus.mutate({ agreementId: a.id, status: val })}
+                                >
+                                  <SelectTrigger className="w-[110px] h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="draft">Draft</SelectItem>
+                                    <SelectItem value="sent">Sent</SelectItem>
+                                    <SelectItem value="signed">Signed</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                    </TableBody>
+                  );
+                })
+              )}
             </Table>
           </CardContent>
         </Card>
