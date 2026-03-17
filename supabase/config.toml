@@ -2,3 +2,6 @@ project_id = "ljbqqvotsujawxhdnglt"
 
 [functions.parse-client-input]
 verify_jwt = false
+
+[functions.fire-webhook]
+verify_jwt = false

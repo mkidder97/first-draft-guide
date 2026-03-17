@@ -162,14 +162,8 @@ function createPDFContext() {
 // ─── Webhook helper ───────────────────────────────────────────
 
 async function fireWebhook(payload: { clientName: string; address: string; serviceType: string; agreementId: string }) {
-  const url = import.meta.env.VITE_N8N_WEBHOOK_URL;
-  if (!url) throw new Error("VITE_N8N_WEBHOOK_URL is not configured");
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error(`Webhook returned ${res.status}`);
+  const { error } = await supabase.functions.invoke("fire-webhook", { body: payload });
+  if (error) throw error;
 }
 
 // ─── Component ─────────────────────────────────────────────────
