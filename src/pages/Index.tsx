@@ -57,6 +57,57 @@ type Client = {
 
 type FlatRow = Agreement & { client: Omit<Client, "agreements"> };
 
+export default function Dashboard() {
+  const [search, setSearch] = useState("");
+  const queryClient = useQueryClient();
+
+  const { data: clients, isLoading } = useQuery({
+    queryKey: ["dashboard-clients"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("*, agreements(*)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Client[];
+    },
+  });
+
+  const updateStatus = useMutation({
+    mutationFn: async ({ agreementId, status }: { agreementId: string; status: string }) => {
+      const updates: Record<string, unknown> = { status };
+      if (status === "signed") updates.signed_at = new Date().toISOString();
+      const { error } = await supabase.from("agreements").update(updates).eq("id", agreementId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboard-clients"] });
+      toast({ title: "Status updated" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update status", variant: "destructive" });
+    },
+  });
+
+  // Derive stats
+  const allAgreements = clients?.flatMap((c) => c.agreements) ?? [];
+  const totalClients = clients?.length ?? 0;
+  const draftCount = allAgreements.filter((a) => a.status === "draft").length;
+  const sentCount = allAgreements.filter((a) => a.status === "sent").length;
+  const signedCount = allAgreements.filter((a) => a.status === "signed").length;
+
+  // Flatten to one row per agreement
+  const flatRows: FlatRow[] = clients?.flatMap((c) => {
+    const { agreements, ...clientData } = c;
+    return agreements.map((a) => ({ ...a, client: clientData }));
+  }) ?? [];
+
+  // Filter by client name or address
+  const filtered = flatRows.filter((row) => {
+    const q = search.toLowerCase();
+    return row.client.name.toLowerCase().includes(q) || row.client.address.toLowerCase().includes(q);
+  });
+
   const stats = [
     { label: "Total Clients", value: totalClients, icon: Users },
     { label: "Draft Agreements", value: draftCount, icon: FileText },
@@ -118,76 +169,55 @@ type FlatRow = Agreement & { client: Omit<Client, "agreements"> };
                   <TableHead>Property Address</TableHead>
                   <TableHead>Markets</TableHead>
                   <TableHead>Buildings</TableHead>
-                  <TableHead>Service Types</TableHead>
+                  <TableHead>Service Type</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead>Update Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((client) => {
-                  const latest = latestAgreement(client.agreements);
-                  const firstAgreementId = latest?.id;
-                  return (
-                    <TableRow key={client.id}>
-                      <TableCell className="font-medium">
-                        {firstAgreementId ? (
-                          <Link to={`/agreements/${firstAgreementId}`} className="text-primary hover:underline">
-                            {client.name}
-                          </Link>
-                        ) : (
-                          client.name
-                        )}
-                      </TableCell>
-                      <TableCell>{client.address}</TableCell>
-                      <TableCell>{client.markets || "—"}</TableCell>
-                      <TableCell>{client.building_count ?? "—"}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {client.agreements.map((a) => (
-                            <Badge key={a.id} variant="secondary" className="text-xs">
-                              {SERVICE_LABELS[a.service_type] || a.service_type}
-                            </Badge>
-                          ))}
-                          {!client.agreements.length && "—"}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {latest ? (
-                          <Badge className={statusColor(latest.status)}>
-                            {latest.status.charAt(0).toUpperCase() + latest.status.slice(1)}
-                          </Badge>
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                      <TableCell>{format(new Date(client.created_at), "MMM d, yyyy")}</TableCell>
-                      <TableCell>
-                        {latest ? (
-                          <Select
-                            value={latest.status}
-                            onValueChange={(val) => updateStatus.mutate({ agreementId: latest.id, status: val })}
-                          >
-                            <SelectTrigger className="w-[110px] h-8 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="draft">Draft</SelectItem>
-                              <SelectItem value="sent">Sent</SelectItem>
-                              <SelectItem value="signed">Signed</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {filtered.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="font-medium">
+                      <Link to={`/agreements/${row.id}`} className="text-primary hover:underline">
+                        {row.client.name}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{row.client.address}</TableCell>
+                    <TableCell>{row.client.markets || "—"}</TableCell>
+                    <TableCell>{row.client.building_count ?? "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="text-xs">
+                        {SERVICE_LABELS[row.service_type] || row.service_type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={statusColor(row.status)}>
+                        {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{format(new Date(row.created_at), "MMM d, yyyy")}</TableCell>
+                    <TableCell>
+                      <Select
+                        value={row.status}
+                        onValueChange={(val) => updateStatus.mutate({ agreementId: row.id, status: val })}
+                      >
+                        <SelectTrigger className="w-[110px] h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="draft">Draft</SelectItem>
+                          <SelectItem value="sent">Sent</SelectItem>
+                          <SelectItem value="signed">Signed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                  </TableRow>
+                ))}
                 {filtered.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                      No clients match your search.
+                      No agreements match your search.
                     </TableCell>
                   </TableRow>
                 )}
