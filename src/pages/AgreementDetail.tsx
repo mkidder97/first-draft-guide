@@ -1,11 +1,25 @@
+// Env required: VITE_N8N_WEBHOOK_URL = https://mkidder97.app.n8n.cloud/webhook/src-client-portal
+
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Download, FileStack } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ArrowLeft, Download, FileStack, CheckCircle, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 
 const SCOPE_PARAGRAPHS: Record<string, string> = {
@@ -147,10 +161,28 @@ function createPDFContext() {
   return { doc, addHeader, addClientInfo, addHeading, addBody, addStandardTerms, addSignatures, checkPage, getY: () => y, setY: (v: number) => { y = v; } };
 }
 
+// ─── Webhook helper ───────────────────────────────────────────
+
+async function fireWebhook(payload: { clientName: string; address: string; serviceType: string; agreementId: string }) {
+  const url = import.meta.env.VITE_N8N_WEBHOOK_URL;
+  if (!url) throw new Error("VITE_N8N_WEBHOOK_URL is not configured");
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`Webhook returned ${res.status}`);
+}
+
 // ─── Component ─────────────────────────────────────────────────
 
 export default function AgreementDetail() {
   const { id } = useParams<{ id: string }>();
+  const queryClient = useQueryClient();
+
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [isMarking, setIsMarking] = useState(false);
+  const [webhookError, setWebhookError] = useState(false);
 
   const { data: agreement, isLoading, error } = useQuery({
     queryKey: ["agreement", id],
@@ -183,6 +215,62 @@ export default function AgreementDetail() {
 
   const client = agreement?.clients as { name: string; address: string } | null;
   const hasCombined = (siblingAgreements?.length ?? 0) >= 2;
+  const canSign = agreement?.status === "draft" || agreement?.status === "sent";
+
+  // ─── Webhook payload builder ─────────────────────────────────
+  function buildWebhookPayload() {
+    return {
+      clientName: client?.name || "",
+      address: client?.address || "",
+      serviceType: agreement?.service_type || "",
+      agreementId: agreement?.id || "",
+    };
+  }
+
+  // ─── Mark as Signed flow ─────────────────────────────────────
+  async function handleMarkSigned() {
+    if (!agreement) return;
+    setIsMarking(true);
+    setWebhookError(false);
+
+    // Step 1: Update Supabase
+    const { error: updateError } = await supabase
+      .from("agreements")
+      .update({ status: "signed", signed_at: new Date().toISOString() })
+      .eq("id", agreement.id);
+
+    if (updateError) {
+      toast({ title: "Error", description: "Failed to update agreement status.", variant: "destructive" });
+      setIsMarking(false);
+      return;
+    }
+
+    // Step 2: Invalidate cache
+    await queryClient.invalidateQueries({ queryKey: ["agreement", id] });
+
+    // Step 3: Fire webhook
+    try {
+      await fireWebhook(buildWebhookPayload());
+      toast({ title: "Success", description: "Agreement marked as signed. OneDrive folder is being created." });
+    } catch {
+      setWebhookError(true);
+    }
+
+    setIsMarking(false);
+  }
+
+  // ─── Retry webhook only ──────────────────────────────────────
+  async function handleRetryWebhook() {
+    setIsMarking(true);
+    try {
+      await fireWebhook(buildWebhookPayload());
+      setWebhookError(false);
+      toast({ title: "Success", description: "Agreement marked as signed. OneDrive folder is being created." });
+    } catch {
+      toast({ title: "Webhook failed", description: "Could not reach the webhook. Please try again.", variant: "destructive" });
+    }
+    setIsMarking(false);
+  }
 
   function generatePDF() {
     if (!agreement) return;
@@ -215,7 +303,6 @@ export default function AgreementDetail() {
       ["AGREEMENT DATE:", format(new Date(), "MMMM d, yyyy")],
     ]);
 
-    // Each service type gets its own scope section
     siblingAgreements.forEach((a, i) => {
       if (i > 0) ctx.setY(ctx.getY() + 8);
       ctx.addHeading(`SCOPE OF SERVICES — ${formatServiceType(a.service_type)}`);
@@ -259,8 +346,24 @@ export default function AgreementDetail() {
           <Badge className={statusColor(agreement.status)}>
             {agreement.status.charAt(0).toUpperCase() + agreement.status.slice(1)}
           </Badge>
+          {agreement.status === "signed" && agreement.signed_at && (
+            <span className="text-sm text-muted-foreground">
+              {format(new Date(agreement.signed_at), "MMM d, yyyy")}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
+          {canSign && (
+            <Button
+              variant="default"
+              onClick={() => setShowConfirm(true)}
+              disabled={isMarking}
+              className="gap-2 bg-green-600 hover:bg-green-700 text-white"
+            >
+              <CheckCircle className="h-4 w-4" />
+              {isMarking ? "Marking…" : "Mark as Signed"}
+            </Button>
+          )}
           {hasCombined && (
             <Button variant="outline" onClick={generateCombinedPDF} className="gap-2">
               <FileStack className="h-4 w-4" />
@@ -273,6 +376,46 @@ export default function AgreementDetail() {
           </Button>
         </div>
       </div>
+
+      {/* Webhook error inline banner */}
+      {webhookError && (
+        <div className="mb-4 flex items-center gap-3 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <span>Webhook failed — the agreement is signed but the OneDrive folder was not created.</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRetryWebhook}
+            disabled={isMarking}
+            className="gap-1 shrink-0"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Retry Webhook
+          </Button>
+        </div>
+      )}
+
+      {/* Confirmation dialog */}
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark as Signed?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Mark this agreement as signed? This will create the client folder in OneDrive automatically.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowConfirm(false);
+                handleMarkSigned();
+              }}
+            >
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Card>
         <CardContent className="p-8 space-y-6 text-sm leading-relaxed text-foreground">
