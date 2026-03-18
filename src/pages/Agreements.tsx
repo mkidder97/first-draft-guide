@@ -109,8 +109,7 @@ export default function Agreements() {
                     <TableRow key={a.id}>
                       <TableCell className="font-medium">{clientName}</TableCell>
                       <TableCell>
-                        {SERVICE_LABELS[a.service_type] ||
-                          a.service_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                        {(a.service_types || []).map(st => SERVICE_LABELS[st] || st.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())).join(", ")}
                       </TableCell>
                       <TableCell>
                         <Badge className={statusColor(a.status)}>

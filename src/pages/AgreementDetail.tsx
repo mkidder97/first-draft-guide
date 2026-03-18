@@ -219,10 +219,10 @@ export default function AgreementDetail() {
       ["AGREEMENT DATE:", format(new Date(agreement!.created_at), "MMMM d, yyyy")],
       ["DURATION:", agreement!.duration || "—"],
       ["FREQUENCY:", agreement!.frequency || "—"],
-      ["SERVICE TYPE:", formatServiceType(agreement!.service_type)],
+      ["SERVICE TYPE:", (agreement!.service_types || []).map(formatServiceType).join(", ")],
     ]);
     ctx.addHeading("SCOPE OF SERVICES");
-    ctx.addBody(SCOPE_PARAGRAPHS[agreement!.service_type] || "Scope to be determined.");
+    ctx.addBody((agreement!.service_types || []).map(st => SCOPE_PARAGRAPHS[st]).filter(Boolean).join("\n\n") || "Scope to be determined.");
     if (agreement!.scope_notes) ctx.addBody("Additional Notes: " + agreement!.scope_notes);
     ctx.addStandardTerms();
     ctx.addSignatures();
@@ -232,7 +232,7 @@ export default function AgreementDetail() {
     return {
       clientName: client?.name || "",
       address: client?.address || "",
-      serviceType: agreement?.service_type || "",
+      serviceType: (agreement?.service_types || []).join(", "),
       agreementId: agreement?.id || "",
       pdfBase64,
     };
@@ -293,10 +293,10 @@ export default function AgreementDetail() {
       ["AGREEMENT DATE:", format(new Date(agreement.created_at), "MMMM d, yyyy")],
       ["DURATION:", agreement.duration || "—"],
       ["FREQUENCY:", agreement.frequency || "—"],
-      ["SERVICE TYPE:", formatServiceType(agreement.service_type)],
+      ["SERVICE TYPE:", (agreement.service_types || []).map(formatServiceType).join(", ")],
     ]);
     ctx.addHeading("SCOPE OF SERVICES");
-    ctx.addBody(SCOPE_PARAGRAPHS[agreement.service_type] || "Scope to be determined.");
+    ctx.addBody((agreement.service_types || []).map(st => SCOPE_PARAGRAPHS[st]).filter(Boolean).join("\n\n") || "Scope to be determined.");
     if (agreement.scope_notes) ctx.addBody("Additional Notes: " + agreement.scope_notes);
     ctx.addStandardTerms();
     ctx.addSignatures();
@@ -316,10 +316,10 @@ export default function AgreementDetail() {
 
     siblingAgreements.forEach((a, i) => {
       if (i > 0) ctx.setY(ctx.getY() + 8);
-      ctx.addHeading(`SCOPE OF SERVICES — ${formatServiceType(a.service_type)}`);
+      ctx.addHeading(`SCOPE OF SERVICES — ${(a.service_types || []).map(formatServiceType).join(", ")}`);
       if (a.duration) ctx.addBody("Duration: " + a.duration + (a.frequency ? "   |   Frequency: " + a.frequency : ""));
       else if (a.frequency) ctx.addBody("Frequency: " + a.frequency);
-      ctx.addBody(SCOPE_PARAGRAPHS[a.service_type] || "Scope to be determined.");
+      ctx.addBody((a.service_types || []).map(st => SCOPE_PARAGRAPHS[st]).filter(Boolean).join("\n\n") || "Scope to be determined.");
       if (a.scope_notes) ctx.addBody("Additional Notes: " + a.scope_notes);
     });
 
@@ -443,12 +443,12 @@ export default function AgreementDetail() {
             <InfoRow label="AGREEMENT DATE" value={format(new Date(agreement.created_at), "MMMM d, yyyy")} />
             <InfoRow label="DURATION" value={agreement.duration || "—"} />
             <InfoRow label="FREQUENCY" value={agreement.frequency || "—"} />
-            <InfoRow label="SERVICE TYPE" value={formatServiceType(agreement.service_type)} />
+            <InfoRow label="SERVICE TYPE" value={(agreement.service_types || []).map(formatServiceType).join(", ")} />
           </div>
 
           {/* Scope */}
           <Section title="SCOPE OF SERVICES">
-            <p>{SCOPE_PARAGRAPHS[agreement.service_type] || "Scope to be determined."}</p>
+            <p>{(agreement.service_types || []).map(st => SCOPE_PARAGRAPHS[st]).filter(Boolean).join("\n\n") || "Scope to be determined."}</p>
             {agreement.scope_notes && (
               <p className="mt-2 text-muted-foreground italic">Additional Notes: {agreement.scope_notes}</p>
             )}

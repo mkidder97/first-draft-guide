@@ -44,7 +44,7 @@ function statusColor(status: string) {
 type Agreement = {
   id: string;
   client_id: string;
-  service_type: string;
+  service_types: string[];
   status: string;
   created_at: string;
   signed_at: string | null;
@@ -284,7 +284,7 @@ export default function Dashboard() {
                               <TableCell className="pl-8">
                                 <Link to={`/agreements/${a.id}`} className="text-primary hover:underline">
                                   <Badge variant="secondary" className="text-xs">
-                                    {SERVICE_LABELS[a.service_type] || a.service_type}
+                                    {(a.service_types || []).map(st => SERVICE_LABELS[st as keyof typeof SERVICE_LABELS] || st).join(", ")}
                                   </Badge>
                                 </Link>
                               </TableCell>

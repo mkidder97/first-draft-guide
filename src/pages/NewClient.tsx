@@ -117,26 +117,24 @@ export default function NewClient() {
 
       if (clientError) throw clientError;
 
-      // Insert one agreement per service type
-      const agreementRows = fields.serviceTypes.map((st) => ({
-        client_id: client.id,
-        service_type: st,
-        duration: fields.duration || null,
-        frequency: fields.frequency || null,
-        scope_notes: fields.scopeNotes || null,
-        status: "draft" as const,
-      }));
-
+      // Single agreement with all service types as array
       const { data: insertedAgreements, error: agreementError } = await supabase
         .from("agreements")
-        .insert(agreementRows)
+        .insert({
+          client_id: client.id,
+          service_types: fields.serviceTypes,
+          duration: fields.duration || null,
+          frequency: fields.frequency || null,
+          scope_notes: fields.scopeNotes || null,
+          status: "draft",
+        })
         .select("id");
 
       if (agreementError) throw agreementError;
 
       toast({
         title: "Client created",
-        description: `${fields.clientName} added with ${fields.serviceTypes.length} draft agreement(s).`,
+        description: `${fields.clientName} added with 1 draft agreement.`,
       });
 
       if (insertedAgreements && insertedAgreements.length === 1) {
