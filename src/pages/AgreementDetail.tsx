@@ -190,9 +190,24 @@ export default function AgreementDetail() {
     enabled: !!id,
   });
 
-
-
+  const client = agreement?.clients as { name: string; address: string } | null;
   const canSign = agreement?.status === "draft" || agreement?.status === "sent";
+
+  // ─── Reopen handler ─────────────────────────────────────────
+  async function handleReopen() {
+    if (!agreement) return;
+    const { error } = await supabase
+      .from("agreements")
+      .update({ status: "draft", signed_at: null })
+      .eq("id", agreement.id);
+    if (error) {
+      toast({ title: "Error", description: "Failed to reopen agreement.", variant: "destructive" });
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["agreement", id] });
+    toast({ title: "Agreement reopened", description: "Status reset to Draft." });
+  }
+
 
   // ─── Webhook payload builder ─────────────────────────────────
   function buildWebhookPayload() {
