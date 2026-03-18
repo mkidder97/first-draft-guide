@@ -218,7 +218,7 @@ export default function AgreementDetail() {
       ["PROPERTY ADDRESS:", client?.address || "—"],
       ["AGREEMENT DATE:", format(new Date(agreement!.created_at), "MMMM d, yyyy")],
       ["DURATION:", agreement!.duration || "—"],
-      ["FREQUENCY:", agreement!.frequency || "—"],
+      
       ["SERVICE TYPE:", (agreement!.service_types || []).map(formatServiceType).join(", ")],
     ]);
     ctx.addHeading("SCOPE OF SERVICES");
