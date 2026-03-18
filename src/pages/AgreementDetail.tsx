@@ -296,7 +296,7 @@ export default function AgreementDetail() {
       ["SERVICE TYPE:", (agreement.service_types || []).map(formatServiceType).join(", ")],
     ]);
     ctx.addHeading("SCOPE OF SERVICES");
-    ctx.addBody(SCOPE_PARAGRAPHS[agreement.service_type] || "Scope to be determined.");
+    ctx.addBody((agreement.service_types || []).map(st => SCOPE_PARAGRAPHS[st]).filter(Boolean).join("\n\n") || "Scope to be determined.");
     if (agreement.scope_notes) ctx.addBody("Additional Notes: " + agreement.scope_notes);
     ctx.addStandardTerms();
     ctx.addSignatures();
