@@ -426,7 +426,7 @@ export default function AgreementDetail() {
             <InfoRow label="PROPERTY ADDRESS" value={client?.address || "—"} />
             <InfoRow label="AGREEMENT DATE" value={format(new Date(agreement.created_at), "MMMM d, yyyy")} />
             <InfoRow label="DURATION" value={agreement.duration || "—"} />
-            <InfoRow label="FREQUENCY" value={agreement.frequency || "—"} />
+            
             <InfoRow label="SERVICES" value={(agreement.service_types || []).map(formatServiceType).join(", ")} />
           </div>
 

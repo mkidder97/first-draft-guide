@@ -286,14 +286,6 @@ function FieldsForm({
           placeholder="e.g. 2 years"
         />
       </div>
-      <div className="space-y-2">
-        <Label>Frequency</Label>
-        <Input
-          value={fields.frequency}
-          onChange={(e) => updateField("frequency", e.target.value)}
-          placeholder="e.g. Quarterly"
-        />
-      </div>
       <div className="space-y-2 sm:col-span-2">
         <Label>Scope Notes</Label>
         <Textarea
