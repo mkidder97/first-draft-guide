@@ -162,7 +162,7 @@ export default function NewClient() {
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
-            placeholder="e.g. New client Acme Corp at 123 Main St, Miami FL 33101. They have 12 buildings across Miami and Dallas markets. They need annual PM and due diligence services, quarterly visits, 2-year contract."
+            placeholder="e.g. New client Acme Corp at 123 Main St, Miami FL 33101. They have 12 buildings across Miami and Dallas markets. They need annual PM and due diligence services, 2-year contract."
             className="min-h-[140px]"
             value={aiMessage}
             onChange={(e) => setAiMessage(e.target.value)}
