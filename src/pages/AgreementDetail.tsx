@@ -227,7 +227,7 @@ export default function AgreementDetail() {
     ctx.addStandardTerms();
     ctx.addSignatures();
     const dataUri = ctx.doc.output("datauristring");
-    const pdfBase64 = dataUri.replace(/^data:application\/pdf;filename=generated\.pdf;base64,/, "");
+    const pdfBase64 = dataUri.replace(/^data:application\/pdf;[^,]*base64,/, "");
 
     return {
       clientName: client?.name || "",
@@ -317,9 +317,9 @@ export default function AgreementDetail() {
     siblingAgreements.forEach((a, i) => {
       if (i > 0) ctx.setY(ctx.getY() + 8);
       ctx.addHeading(`SCOPE OF SERVICES — ${formatServiceType(a.service_type)}`);
+      if (a.duration) ctx.addBody("Duration: " + a.duration + (a.frequency ? "   |   Frequency: " + a.frequency : ""));
+      else if (a.frequency) ctx.addBody("Frequency: " + a.frequency);
       ctx.addBody(SCOPE_PARAGRAPHS[a.service_type] || "Scope to be determined.");
-      if (a.duration) ctx.addBody("Duration: " + a.duration);
-      if (a.frequency) ctx.addBody("Frequency: " + a.frequency);
       if (a.scope_notes) ctx.addBody("Additional Notes: " + a.scope_notes);
     });
 
