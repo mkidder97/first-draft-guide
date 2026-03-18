@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 const navItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "New Client", url: "/new-client", icon: PlusCircle },
-  { title: "Agreements", url: "/agreements", icon: FileText },
+  { title: "Clients", url: "/agreements", icon: Users },
 ];
 
 export function AppSidebar() {
