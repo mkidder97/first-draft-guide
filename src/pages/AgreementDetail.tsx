@@ -190,23 +190,8 @@ export default function AgreementDetail() {
     enabled: !!id,
   });
 
-  // Fetch sibling agreements for the same client (for combined PDF)
-  const { data: siblingAgreements } = useQuery({
-    queryKey: ["client-agreements", agreement?.client_id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("agreements")
-        .select("*")
-        .eq("client_id", agreement!.client_id)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!agreement?.client_id,
-  });
 
-  const client = agreement?.clients as { name: string; address: string } | null;
-  const hasCombined = (siblingAgreements?.length ?? 0) >= 2;
+
   const canSign = agreement?.status === "draft" || agreement?.status === "sent";
 
   // ─── Webhook payload builder ─────────────────────────────────
