@@ -26,7 +26,7 @@ interface ClientFields {
   buildingCount: string;
   markets: string;
   duration: string;
-  frequency: string;
+  
   scopeNotes: string;
 }
 
@@ -37,7 +37,7 @@ const emptyFields: ClientFields = {
   buildingCount: "",
   markets: "",
   duration: "",
-  frequency: "",
+  
   scopeNotes: "",
 };
 
@@ -83,7 +83,7 @@ export default function NewClient() {
         buildingCount: data.buildingCount != null ? String(data.buildingCount) : "",
         markets: data.markets || "",
         duration: data.duration || "",
-        frequency: data.frequency || "",
+        
         scopeNotes: data.scopeNotes || "",
       });
     } catch (err: any) {
@@ -124,7 +124,7 @@ export default function NewClient() {
           client_id: client.id,
           service_types: fields.serviceTypes,
           duration: fields.duration || null,
-          frequency: fields.frequency || null,
+          
           scope_notes: fields.scopeNotes || null,
           status: "draft",
         })
@@ -162,7 +162,7 @@ export default function NewClient() {
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
-            placeholder="e.g. New client Acme Corp at 123 Main St, Miami FL 33101. They have 12 buildings across Miami and Dallas markets. They need annual PM and due diligence services, quarterly visits, 2-year contract."
+            placeholder="e.g. New client Acme Corp at 123 Main St, Miami FL 33101. They have 12 buildings across Miami and Dallas markets. They need annual PM and due diligence services, 2-year contract."
             className="min-h-[140px]"
             value={aiMessage}
             onChange={(e) => setAiMessage(e.target.value)}
@@ -284,14 +284,6 @@ function FieldsForm({
           value={fields.duration}
           onChange={(e) => updateField("duration", e.target.value)}
           placeholder="e.g. 2 years"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Frequency</Label>
-        <Input
-          value={fields.frequency}
-          onChange={(e) => updateField("frequency", e.target.value)}
-          placeholder="e.g. Quarterly"
         />
       </div>
       <div className="space-y-2 sm:col-span-2">
