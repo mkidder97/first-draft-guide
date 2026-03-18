@@ -325,6 +325,16 @@ export default function AgreementDetail() {
               {format(new Date(agreement.signed_at), "MMM d, yyyy")}
             </span>
           )}
+          {agreement.status === "signed" && (
+            <Button
+              variant="outline"
+              onClick={handleReopen}
+              className="gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Reopen
+            </Button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {canSign && (
