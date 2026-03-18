@@ -23,7 +23,7 @@ export type Database = {
           id: string
           pdf_url: string | null
           scope_notes: string | null
-          service_type: string
+          service_types: string[]
           signed_at: string | null
           status: string
         }
@@ -35,7 +35,7 @@ export type Database = {
           id?: string
           pdf_url?: string | null
           scope_notes?: string | null
-          service_type: string
+          service_types?: string[]
           signed_at?: string | null
           status?: string
         }
@@ -47,7 +47,7 @@ export type Database = {
           id?: string
           pdf_url?: string | null
           scope_notes?: string | null
-          service_type?: string
+          service_types?: string[]
           signed_at?: string | null
           status?: string
         }
