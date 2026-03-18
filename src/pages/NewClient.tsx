@@ -83,7 +83,7 @@ export default function NewClient() {
         buildingCount: data.buildingCount != null ? String(data.buildingCount) : "",
         markets: data.markets || "",
         duration: data.duration || "",
-        frequency: data.frequency || "",
+        
         scopeNotes: data.scopeNotes || "",
       });
     } catch (err: any) {
