@@ -12,10 +12,13 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Collapsible, CollapsibleTrigger, CollapsibleContent,
-} from "@/components/ui/collapsible";
-import { Users, FileText, Send, CheckCircle, Search, Plus, ChevronRight } from "lucide-react";
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
+  AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Users, FileText, Send, CheckCircle, Search, Plus, ChevronRight, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 
@@ -93,6 +96,20 @@ export default function Dashboard() {
     },
   });
 
+  const deleteAgreement = useMutation({
+    mutationFn: async (agreementId: string) => {
+      const { error } = await supabase.from("agreements").delete().eq("id", agreementId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboard-clients"] });
+      toast({ title: "Agreement deleted" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete agreement", variant: "destructive" });
+    },
+  });
+
   // Derive stats
   const allAgreements = clients?.flatMap((c) => c.agreements) ?? [];
   const totalClients = clients?.length ?? 0;
@@ -106,7 +123,6 @@ export default function Dashboard() {
     const q = search.toLowerCase();
     return clients
       .filter((c) => c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q))
-      .filter((c) => c.agreements.length > 0)
       .map((c) => ({ ...c }));
   }, [clients, search]);
 
@@ -163,7 +179,29 @@ export default function Dashboard() {
 
       {/* Table / Empty State */}
       {isLoading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {[...Array(4)].map((_, i) => (
+              <Card key={i}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <Skeleton className="h-4 w-24" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-8 w-16" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <Card>
+            <CardContent className="p-4">
+              <div className="space-y-4">
+                {[...Array(4)].map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-full" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </>
       ) : !clients?.length ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
@@ -189,12 +227,13 @@ export default function Dashboard() {
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead>Update Status</TableHead>
+                  <TableHead>Delete</TableHead>
                 </TableRow>
               </TableHeader>
               {filteredGroups.length === 0 ? (
                 <TableBody>
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                       No agreements match your search.
                     </TableCell>
                   </TableRow>
@@ -219,10 +258,19 @@ export default function Dashboard() {
                         <TableCell className="text-muted-foreground">{group.markets || "—"}</TableCell>
                         <TableCell className="text-muted-foreground">{group.building_count ?? "—"}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {group.agreements.length} agreement{group.agreements.length !== 1 ? "s" : ""}
-                          </Badge>
+                          {group.agreements.length === 0 ? (
+                            <Link to="/new-client">
+                              <Badge variant="outline" className="text-xs text-muted-foreground">
+                                No agreements
+                              </Badge>
+                            </Link>
+                          ) : (
+                            <Badge variant="outline" className="text-xs">
+                              {group.agreements.length} agreement{group.agreements.length !== 1 ? "s" : ""}
+                            </Badge>
+                          )}
                         </TableCell>
+                        <TableCell />
                         <TableCell />
                         <TableCell />
                       </TableRow>
@@ -263,6 +311,32 @@ export default function Dashboard() {
                                     <SelectItem value="signed">Signed</SelectItem>
                                   </SelectContent>
                                 </Select>
+                              </TableCell>
+                              <TableCell>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete agreement?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This will permanently delete this agreement. This action cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                        onClick={() => deleteAgreement.mutate(a.id)}
+                                      >
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                               </TableCell>
                             </TableRow>
                           ))}
