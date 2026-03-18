@@ -17,6 +17,7 @@ export type Database = {
       agreements: {
         Row: {
           client_id: string
+          contract_end_date: string | null
           created_at: string
           duration: string | null
           frequency: string | null
@@ -29,6 +30,7 @@ export type Database = {
         }
         Insert: {
           client_id: string
+          contract_end_date?: string | null
           created_at?: string
           duration?: string | null
           frequency?: string | null
@@ -41,6 +43,7 @@ export type Database = {
         }
         Update: {
           client_id?: string
+          contract_end_date?: string | null
           created_at?: string
           duration?: string | null
           frequency?: string | null

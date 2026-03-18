@@ -1,0 +1,1 @@
+ALTER TABLE agreements ADD COLUMN IF NOT EXISTS contract_end_date date;
