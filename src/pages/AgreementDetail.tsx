@@ -317,9 +317,9 @@ export default function AgreementDetail() {
     siblingAgreements.forEach((a, i) => {
       if (i > 0) ctx.setY(ctx.getY() + 8);
       ctx.addHeading(`SCOPE OF SERVICES — ${formatServiceType(a.service_type)}`);
+      if (a.duration) ctx.addBody("Duration: " + a.duration + (a.frequency ? "   |   Frequency: " + a.frequency : ""));
+      else if (a.frequency) ctx.addBody("Frequency: " + a.frequency);
       ctx.addBody(SCOPE_PARAGRAPHS[a.service_type] || "Scope to be determined.");
-      if (a.duration) ctx.addBody("Duration: " + a.duration);
-      if (a.frequency) ctx.addBody("Frequency: " + a.frequency);
       if (a.scope_notes) ctx.addBody("Additional Notes: " + a.scope_notes);
     });
 
