@@ -227,7 +227,7 @@ export default function AgreementDetail() {
     ctx.addStandardTerms();
     ctx.addSignatures();
     const dataUri = ctx.doc.output("datauristring");
-    const pdfBase64 = dataUri.replace(/^data:application\/pdf;filename=generated\.pdf;base64,/, "");
+    const pdfBase64 = dataUri.replace(/^data:application\/pdf;[^,]*base64,/, "");
 
     return {
       clientName: client?.name || "",
