@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -151,65 +151,40 @@ export default function NewClient() {
     <div className="max-w-3xl mx-auto">
       <h1 className="text-2xl font-bold text-foreground mb-6">New Client</h1>
 
-      <Tabs defaultValue="ai" className="mb-6">
-        <TabsList className="w-full">
-          <TabsTrigger value="ai" className="flex-1 gap-2">
-            <Sparkles className="h-4 w-4" />
-            AI Chat
-          </TabsTrigger>
-          <TabsTrigger value="manual" className="flex-1">
-            Manual Form
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="ai">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">
-                Describe the client and agreement
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Textarea
-                placeholder="e.g. New client Acme Corp at 123 Main St, Miami FL 33101. They have 12 buildings across Miami and Dallas markets. They need annual PM and due diligence services, quarterly visits, 2-year contract."
-                className="min-h-[140px]"
-                value={aiMessage}
-                onChange={(e) => setAiMessage(e.target.value)}
-              />
-              {parseError && (
-                <p className="text-sm text-destructive">{parseError}</p>
-              )}
-              <Button
-                onClick={handleParse}
-                disabled={isParsing || !aiMessage.trim()}
-              >
-                {isParsing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Parsing…
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4" />
-                    Parse with AI
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="manual">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Enter client details</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <FieldsForm fields={fields} updateField={updateField} toggleServiceType={toggleServiceType} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-lg">
+            Describe the client and agreement
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Textarea
+            placeholder="e.g. New client Acme Corp at 123 Main St, Miami FL 33101. They have 12 buildings across Miami and Dallas markets. They need annual PM and due diligence services, quarterly visits, 2-year contract."
+            className="min-h-[140px]"
+            value={aiMessage}
+            onChange={(e) => setAiMessage(e.target.value)}
+          />
+          {parseError && (
+            <p className="text-sm text-destructive">{parseError}</p>
+          )}
+          <Button
+            onClick={handleParse}
+            disabled={isParsing || !aiMessage.trim()}
+          >
+            {isParsing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Parsing…
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" />
+                Parse with AI
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Shared review + submit */}
       <Card>
