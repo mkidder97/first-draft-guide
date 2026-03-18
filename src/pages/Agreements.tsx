@@ -4,14 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { Eye } from "lucide-react";
+import { Eye, Search, Plus } from "lucide-react";
 import { format } from "date-fns";
 
 const SERVICE_LABELS: Record<string, string> = {
@@ -33,97 +31,128 @@ function statusColor(status: string) {
   }
 }
 
-export default function Agreements() {
-  const [clientFilter, setClientFilter] = useState("all");
+export default function Clients() {
+  const [search, setSearch] = useState("");
 
-  const { data: agreements, isLoading } = useQuery({
-    queryKey: ["agreements"],
+  const { data: clients, isLoading } = useQuery({
+    queryKey: ["clients-list"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("agreements")
-        .select("*, clients(name)")
+        .from("clients")
+        .select("*, agreements(*)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
   });
 
-  const uniqueClients = useMemo(() => {
-    if (!agreements) return [];
-    const names = new Set(
-      agreements.map((a) => (a.clients as { name: string } | null)?.name).filter(Boolean) as string[]
-    );
-    return Array.from(names).sort();
-  }, [agreements]);
-
   const filtered = useMemo(() => {
-    if (!agreements) return [];
-    if (clientFilter === "all") return agreements;
-    return agreements.filter((a) => (a.clients as { name: string } | null)?.name === clientFilter);
-  }, [agreements, clientFilter]);
+    if (!clients) return [];
+    const q = search.toLowerCase();
+    return clients.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.address.toLowerCase().includes(q)
+    );
+  }, [clients, search]);
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-foreground mb-6">Agreements</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-foreground">Clients</h1>
+        <div>
+          <Link to="/new-client">
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              New Client
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      <div className="relative mb-4">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search clients…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Service Agreements</CardTitle>
-          <Select value={clientFilter} onValueChange={setClientFilter}>
-            <SelectTrigger className="w-[200px] h-9 text-sm">
-              <SelectValue placeholder="Filter by Client" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Clients</SelectItem>
-              {uniqueClients.map((name) => (
-                <SelectItem key={name} value={name}>
-                  {name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {isLoading ? (
-            <p className="text-muted-foreground">Loading…</p>
+            <p className="text-muted-foreground p-6">Loading…</p>
           ) : !filtered?.length ? (
-            <p className="text-muted-foreground">
-              {clientFilter === "all"
-                ? "No agreements yet. Create a client to get started."
-                : "No agreements for this client."}
-            </p>
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">
+                {search ? "No clients match your search." : "No clients yet."}
+              </p>
+              {!search && (
+                <div className="mt-4">
+                  <Link to="/new-client">
+                    <Button variant="outline">Add First Client</Button>
+                  </Link>
+                </div>
+              )}
+            </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Client</TableHead>
-                  <TableHead>Service Type</TableHead>
+                  <TableHead>Address</TableHead>
+                  <TableHead>Markets</TableHead>
+                  <TableHead>Buildings</TableHead>
+                  <TableHead>Services</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((a) => {
-                  const clientName = (a.clients as { name: string } | null)?.name || "—";
+                {filtered.map((client) => {
+                  const agreement = client.agreements?.[0];
                   return (
-                    <TableRow key={a.id}>
-                      <TableCell className="font-medium">{clientName}</TableCell>
+                    <TableRow key={client.id}>
+                      <TableCell className="font-medium">{client.name}</TableCell>
+                      <TableCell>{client.address}</TableCell>
+                      <TableCell>{client.markets || "—"}</TableCell>
+                      <TableCell>{client.building_count ?? "—"}</TableCell>
                       <TableCell>
-                        {(a.service_types || []).map(st => SERVICE_LABELS[st] || st.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())).join(", ")}
+                        {agreement
+                          ? (agreement.service_types || [])
+                              .map((st: string) => SERVICE_LABELS[st] || st)
+                              .join(", ")
+                          : <span className="text-muted-foreground">No agreement</span>
+                        }
                       </TableCell>
                       <TableCell>
-                        <Badge className={statusColor(a.status)}>
-                          {a.status.charAt(0).toUpperCase() + a.status.slice(1)}
-                        </Badge>
+                        {agreement ? (
+                          <Badge className={statusColor(agreement.status)}>
+                            {agreement.status.charAt(0).toUpperCase() + agreement.status.slice(1)}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">None</Badge>
+                        )}
                       </TableCell>
-                      <TableCell>{format(new Date(a.created_at), "MMM d, yyyy")}</TableCell>
+                      <TableCell>{format(new Date(client.created_at), "MMM d, yyyy")}</TableCell>
                       <TableCell className="text-right">
-                        <Link to={`/agreements/${a.id}`}>
-                          <Button variant="ghost" size="sm" className="gap-1">
-                            <Eye className="h-4 w-4" />
-                            View
-                          </Button>
-                        </Link>
+                        {agreement ? (
+                          <Link to={`/agreements/${agreement.id}`}>
+                            <Button variant="ghost" size="sm" className="gap-1">
+                              <Eye className="h-4 w-4" />
+                              View
+                            </Button>
+                          </Link>
+                        ) : (
+                          <Link to="/new-client">
+                            <Button variant="outline" size="sm">
+                              Add Agreement
+                            </Button>
+                          </Link>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
