@@ -37,7 +37,7 @@ const emptyFields: ClientFields = {
   buildingCount: "",
   markets: "",
   duration: "",
-  frequency: "",
+  
   scopeNotes: "",
 };
 
