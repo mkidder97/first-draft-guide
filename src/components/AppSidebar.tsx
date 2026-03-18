@@ -1,4 +1,4 @@
-import { Home, PlusCircle, FileText, LogOut } from "lucide-react";
+import { Home, PlusCircle, Users, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import srcLogo from "@/assets/src-logo.png";
