@@ -124,7 +124,7 @@ export default function NewClient() {
           client_id: client.id,
           service_types: fields.serviceTypes,
           duration: fields.duration || null,
-          frequency: fields.frequency || null,
+          
           scope_notes: fields.scopeNotes || null,
           status: "draft",
         })
