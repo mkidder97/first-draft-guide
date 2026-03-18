@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Download, FileStack, CheckCircle, RefreshCw } from "lucide-react";
+import { ArrowLeft, Download, CheckCircle, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
@@ -190,24 +190,24 @@ export default function AgreementDetail() {
     enabled: !!id,
   });
 
-  // Fetch sibling agreements for the same client (for combined PDF)
-  const { data: siblingAgreements } = useQuery({
-    queryKey: ["client-agreements", agreement?.client_id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("agreements")
-        .select("*")
-        .eq("client_id", agreement!.client_id)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!agreement?.client_id,
-  });
-
   const client = agreement?.clients as { name: string; address: string } | null;
-  const hasCombined = (siblingAgreements?.length ?? 0) >= 2;
   const canSign = agreement?.status === "draft" || agreement?.status === "sent";
+
+  // ─── Reopen handler ─────────────────────────────────────────
+  async function handleReopen() {
+    if (!agreement) return;
+    const { error } = await supabase
+      .from("agreements")
+      .update({ status: "draft", signed_at: null })
+      .eq("id", agreement.id);
+    if (error) {
+      toast({ title: "Error", description: "Failed to reopen agreement.", variant: "destructive" });
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["agreement", id] });
+    toast({ title: "Agreement reopened", description: "Status reset to Draft." });
+  }
+
 
   // ─── Webhook payload builder ─────────────────────────────────
   function buildWebhookPayload() {
@@ -304,30 +304,8 @@ export default function AgreementDetail() {
     ctx.doc.save(`SRC_Agreement_${clientName}.pdf`);
   }
 
-  function generateCombinedPDF() {
-    if (!siblingAgreements || !client) return;
-    const ctx = createPDFContext();
-    ctx.addHeader();
-    ctx.addClientInfo([
-      ["CLIENT:", client.name],
-      ["PROPERTY ADDRESS:", client.address],
-      ["AGREEMENT DATE:", format(new Date(), "MMMM d, yyyy")],
-    ]);
 
-    siblingAgreements.forEach((a, i) => {
-      if (i > 0) ctx.setY(ctx.getY() + 8);
-      ctx.addHeading(`SCOPE OF SERVICES — ${(a.service_types || []).map(formatServiceType).join(", ")}`);
-      if (a.duration) ctx.addBody("Duration: " + a.duration + (a.frequency ? "   |   Frequency: " + a.frequency : ""));
-      else if (a.frequency) ctx.addBody("Frequency: " + a.frequency);
-      ctx.addBody((a.service_types || []).map(st => SCOPE_PARAGRAPHS[st]).filter(Boolean).join("\n\n") || "Scope to be determined.");
-      if (a.scope_notes) ctx.addBody("Additional Notes: " + a.scope_notes);
-    });
 
-    ctx.addStandardTerms();
-    ctx.addSignatures();
-    const clientName = client.name.replace(/[^a-zA-Z0-9]/g, "_");
-    ctx.doc.save(`SRC_Combined_Agreement_${clientName}.pdf`);
-  }
 
   if (isLoading) {
     return <div className="p-8 text-muted-foreground">Loading agreement…</div>;
@@ -362,6 +340,16 @@ export default function AgreementDetail() {
               {format(new Date(agreement.signed_at), "MMM d, yyyy")}
             </span>
           )}
+          {agreement.status === "signed" && (
+            <Button
+              variant="outline"
+              onClick={handleReopen}
+              className="gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Reopen
+            </Button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {canSign && (
@@ -375,12 +363,8 @@ export default function AgreementDetail() {
               {isMarking ? "Marking…" : "Mark as Signed"}
             </Button>
           )}
-          {hasCombined && (
-            <Button variant="outline" onClick={generateCombinedPDF} className="gap-2">
-              <FileStack className="h-4 w-4" />
-              Generate Combined PDF
-            </Button>
-          )}
+
+
           <Button onClick={generatePDF} className="gap-2">
             <Download className="h-4 w-4" />
             Generate PDF
@@ -443,12 +427,23 @@ export default function AgreementDetail() {
             <InfoRow label="AGREEMENT DATE" value={format(new Date(agreement.created_at), "MMMM d, yyyy")} />
             <InfoRow label="DURATION" value={agreement.duration || "—"} />
             <InfoRow label="FREQUENCY" value={agreement.frequency || "—"} />
-            <InfoRow label="SERVICE TYPE" value={(agreement.service_types || []).map(formatServiceType).join(", ")} />
+            <InfoRow label="SERVICES" value={(agreement.service_types || []).map(formatServiceType).join(", ")} />
           </div>
 
           {/* Scope */}
           <Section title="SCOPE OF SERVICES">
-            <p>{(agreement.service_types || []).map(st => SCOPE_PARAGRAPHS[st]).filter(Boolean).join("\n\n") || "Scope to be determined."}</p>
+            {(agreement.service_types || []).length === 0 ? (
+              <p>Scope to be determined.</p>
+            ) : (
+              <div className="space-y-4">
+                {(agreement.service_types || []).map((st) => (
+                  <div key={st}>
+                    <p className="font-semibold text-sm mb-1">{formatServiceType(st)}</p>
+                    <p>{SCOPE_PARAGRAPHS[st] || "Scope to be determined."}</p>
+                  </div>
+                ))}
+              </div>
+            )}
             {agreement.scope_notes && (
               <p className="mt-2 text-muted-foreground italic">Additional Notes: {agreement.scope_notes}</p>
             )}
