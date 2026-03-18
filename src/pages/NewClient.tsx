@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, ImageIcon } from "lucide-react";
 
 const SERVICE_TYPES = [
   { value: "annual_pm", label: "Annual PM" },
@@ -26,7 +26,6 @@ interface ClientFields {
   buildingCount: string;
   markets: string;
   duration: string;
-  
   scopeNotes: string;
 }
 
@@ -37,7 +36,6 @@ const emptyFields: ClientFields = {
   buildingCount: "",
   markets: "",
   duration: "",
-  
   scopeNotes: "",
 };
 
@@ -49,6 +47,8 @@ export default function NewClient() {
   const [parseError, setParseError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [inputMode, setInputMode] = useState<"text" | "screenshot">("text");
+  const [selectedImage, setSelectedImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
 
   const updateField = (key: keyof ClientFields, value: string | string[]) => {
     setFields((prev) => ({ ...prev, [key]: value }));
@@ -83,12 +83,49 @@ export default function NewClient() {
         buildingCount: data.buildingCount != null ? String(data.buildingCount) : "",
         markets: data.markets || "",
         duration: data.duration || "",
-        
         scopeNotes: data.scopeNotes || "",
       });
     } catch (err: any) {
       console.error("Parse error:", err);
       setParseError(err?.message || "Failed to parse input. Please try again.");
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(",")[1];
+      const preview = dataUrl;
+      setSelectedImage({ base64, mimeType: file.type, preview });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleParseScreenshot = async () => {
+    if (!selectedImage) return;
+    setIsParsing(true);
+    setParseError("");
+    try {
+      const { data, error } = await supabase.functions.invoke("parse-client-input", {
+        body: { imageBase64: selectedImage.base64, mimeType: selectedImage.mimeType },
+      });
+      if (error) throw error;
+      setFields({
+        clientName: data.clientName || "",
+        address: data.address || "",
+        serviceTypes: Array.isArray(data.serviceTypes) ? data.serviceTypes : [],
+        buildingCount: data.buildingCount != null ? String(data.buildingCount) : "",
+        markets: data.markets || "",
+        duration: data.duration || "",
+        scopeNotes: data.scopeNotes || "",
+      });
+    } catch (err: any) {
+      setParseError(err?.message || "Failed to parse screenshot. Please try again.");
     } finally {
       setIsParsing(false);
     }
@@ -117,14 +154,12 @@ export default function NewClient() {
 
       if (clientError) throw clientError;
 
-      // Single agreement with all service types as array
       const { data: insertedAgreements, error: agreementError } = await supabase
         .from("agreements")
         .insert({
           client_id: client.id,
           service_types: fields.serviceTypes,
           duration: fields.duration || null,
-          
           scope_notes: fields.scopeNotes || null,
           status: "draft",
         })
@@ -157,35 +192,82 @@ export default function NewClient() {
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="text-lg">
-            Describe the client and agreement
+            {inputMode === "text" ? "Describe the client" : "Upload a screenshot"}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Textarea
-            placeholder="e.g. New client Acme Corp at 123 Main St, Miami FL 33101. They have 12 buildings across Miami and Dallas markets. They need annual PM and due diligence services, 2-year contract."
-            className="min-h-[140px]"
-            value={aiMessage}
-            onChange={(e) => setAiMessage(e.target.value)}
-          />
+          <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as "text" | "screenshot")}>
+            <TabsList>
+              <TabsTrigger value="text" className="gap-1.5">
+                <Sparkles className="h-3.5 w-3.5" />
+                Text
+              </TabsTrigger>
+              <TabsTrigger value="screenshot" className="gap-1.5">
+                <ImageIcon className="h-3.5 w-3.5" />
+                Screenshot
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="text" className="space-y-4">
+              <Textarea
+                placeholder="e.g. New client Acme Corp at 123 Main St, Miami FL 33101. They have 12 buildings across Miami and Dallas markets. They need annual PM and due diligence services, 2-year contract."
+                className="min-h-[140px]"
+                value={aiMessage}
+                onChange={(e) => setAiMessage(e.target.value)}
+              />
+              <Button
+                onClick={handleParse}
+                disabled={isParsing || !aiMessage.trim()}
+              >
+                {isParsing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Parsing…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    Parse with AI
+                  </>
+                )}
+              </Button>
+            </TabsContent>
+
+            <TabsContent value="screenshot" className="space-y-4">
+              <Input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handleImageSelect}
+              />
+              {selectedImage && (
+                <img
+                  src={selectedImage.preview}
+                  alt="Screenshot preview"
+                  className="max-h-48 rounded-md border border-border object-contain"
+                />
+              )}
+              <Button
+                onClick={handleParseScreenshot}
+                disabled={isParsing || !selectedImage}
+              >
+                {isParsing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Parsing…
+                  </>
+                ) : (
+                  <>
+                    <ImageIcon className="h-4 w-4" />
+                    Parse Screenshot
+                  </>
+                )}
+              </Button>
+            </TabsContent>
+          </Tabs>
+
           {parseError && (
             <p className="text-sm text-destructive">{parseError}</p>
           )}
-          <Button
-            onClick={handleParse}
-            disabled={isParsing || !aiMessage.trim()}
-          >
-            {isParsing ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Parsing…
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                Parse with AI
-              </>
-            )}
-          </Button>
         </CardContent>
       </Card>
 

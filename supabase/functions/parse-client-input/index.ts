@@ -37,10 +37,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { message } = await req.json();
-    if (!message || typeof message !== "string") {
+    const body = await req.json();
+    const { message, imageBase64, mimeType } = body;
+
+    if (!message && !imageBase64) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid 'message' field" }),
+        JSON.stringify({ error: "Missing message or imageBase64" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -59,6 +61,45 @@ Deno.serve(async (req) => {
       );
     }
 
+    const extractionPrompt = `Extract client information and return ONLY valid JSON with no other text:
+
+{
+  "clientName": "string - the client or company name",
+  "address": "string - the property address",
+  "serviceTypes": ["array - each must be one of: annual_pm, due_diligence, survey, storm, construction_management"],
+  "buildingCount": "number or null",
+  "markets": "string or null - geographic markets mentioned",
+  "duration": "string or null - contract duration if mentioned",
+  "scopeNotes": "string or null - additional scope details"
+}
+
+If a field is not mentioned, use null. For serviceTypes, always return an array. Return ONLY the JSON object.`;
+
+    const messages = imageBase64 ? [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: mimeType || "image/jpeg",
+              data: imageBase64,
+            },
+          },
+          {
+            type: "text",
+            text: extractionPrompt,
+          }
+        ]
+      }
+    ] : [
+      {
+        role: "user",
+        content: message,
+      }
+    ];
+
     const anthropicRes = await fetch(
       "https://api.anthropic.com/v1/messages",
       {
@@ -69,28 +110,10 @@ Deno.serve(async (req) => {
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-haiku-4-5-20251001",
           max_tokens: 1024,
-          messages: [
-            {
-              role: "user",
-              content: message,
-            },
-          ],
-          system: `You are a data extraction assistant for a property management company. Extract the following fields from the user's message and return ONLY valid JSON with no other text:
-
-{
-  "clientName": "string - the client or company name",
-  "address": "string - the property address",
-  "serviceTypes": ["array of strings - each must be exactly one of: annual_pm, due_diligence, survey, storm, construction_management"],
-  "buildingCount": "number or null - total number of buildings if mentioned",
-  "markets": "string or null - markets or geographic areas the client operates in",
-  "duration": "string or null - contract duration if mentioned",
-  "frequency": "string or null - service frequency if mentioned",
-  "scopeNotes": "string or null - any additional scope details"
-}
-
-If a field is not mentioned, use null. For serviceTypes, pick the closest match(es) from the allowed values and always return an array (even if only one). Return ONLY the JSON object, no markdown, no explanation.`,
+          messages,
+          system: imageBase64 ? undefined : `You are a data extraction assistant for a roofing consultancy. Extract client information from the user's message. ${extractionPrompt}`,
         }),
       }
     );
