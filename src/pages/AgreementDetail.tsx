@@ -448,7 +448,7 @@ export default function AgreementDetail() {
 
           {/* Scope */}
           <Section title="SCOPE OF SERVICES">
-            <p>{SCOPE_PARAGRAPHS[agreement.service_type] || "Scope to be determined."}</p>
+            <p>{(agreement.service_types || []).map(st => SCOPE_PARAGRAPHS[st]).filter(Boolean).join("\n\n") || "Scope to be determined."}</p>
             {agreement.scope_notes && (
               <p className="mt-2 text-muted-foreground italic">Additional Notes: {agreement.scope_notes}</p>
             )}
