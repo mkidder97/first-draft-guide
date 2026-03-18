@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Download, FileStack, CheckCircle, RefreshCw } from "lucide-react";
+import { ArrowLeft, Download, CheckCircle, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
