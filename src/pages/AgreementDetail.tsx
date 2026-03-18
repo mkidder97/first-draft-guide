@@ -289,30 +289,8 @@ export default function AgreementDetail() {
     ctx.doc.save(`SRC_Agreement_${clientName}.pdf`);
   }
 
-  function generateCombinedPDF() {
-    if (!siblingAgreements || !client) return;
-    const ctx = createPDFContext();
-    ctx.addHeader();
-    ctx.addClientInfo([
-      ["CLIENT:", client.name],
-      ["PROPERTY ADDRESS:", client.address],
-      ["AGREEMENT DATE:", format(new Date(), "MMMM d, yyyy")],
-    ]);
 
-    siblingAgreements.forEach((a, i) => {
-      if (i > 0) ctx.setY(ctx.getY() + 8);
-      ctx.addHeading(`SCOPE OF SERVICES — ${(a.service_types || []).map(formatServiceType).join(", ")}`);
-      if (a.duration) ctx.addBody("Duration: " + a.duration + (a.frequency ? "   |   Frequency: " + a.frequency : ""));
-      else if (a.frequency) ctx.addBody("Frequency: " + a.frequency);
-      ctx.addBody((a.service_types || []).map(st => SCOPE_PARAGRAPHS[st]).filter(Boolean).join("\n\n") || "Scope to be determined.");
-      if (a.scope_notes) ctx.addBody("Additional Notes: " + a.scope_notes);
-    });
 
-    ctx.addStandardTerms();
-    ctx.addSignatures();
-    const clientName = client.name.replace(/[^a-zA-Z0-9]/g, "_");
-    ctx.doc.save(`SRC_Combined_Agreement_${clientName}.pdf`);
-  }
 
   if (isLoading) {
     return <div className="p-8 text-muted-foreground">Loading agreement…</div>;
