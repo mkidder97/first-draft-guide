@@ -417,7 +417,18 @@ export default function AgreementDetail() {
 
           {/* Scope */}
           <Section title="SCOPE OF SERVICES">
-            <p>{(agreement.service_types || []).map(st => SCOPE_PARAGRAPHS[st]).filter(Boolean).join("\n\n") || "Scope to be determined."}</p>
+            {(agreement.service_types || []).length === 0 ? (
+              <p>Scope to be determined.</p>
+            ) : (
+              <div className="space-y-4">
+                {(agreement.service_types || []).map((st) => (
+                  <div key={st}>
+                    <p className="font-semibold text-sm mb-1">{formatServiceType(st)}</p>
+                    <p>{SCOPE_PARAGRAPHS[st] || "Scope to be determined."}</p>
+                  </div>
+                ))}
+              </div>
+            )}
             {agreement.scope_notes && (
               <p className="mt-2 text-muted-foreground italic">Additional Notes: {agreement.scope_notes}</p>
             )}
