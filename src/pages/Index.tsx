@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,8 +18,12 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
   AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Users, FileText, Send, CheckCircle, Search, Plus, ChevronRight, Trash2 } from "lucide-react";
-import { format } from "date-fns";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Users, CheckCircle, Search, Plus, Trash2,
+  Building2, TrendingUp, AlertTriangle,
+} from "lucide-react";
+import { format, differenceInDays, parseISO } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 
 const SERVICE_LABELS: Record<string, string> = {
@@ -41,6 +45,11 @@ function statusColor(status: string) {
   }
 }
 
+const MARKET_COLORS = [
+  "bg-primary", "bg-blue-500", "bg-emerald-500", "bg-amber-500",
+  "bg-rose-500", "bg-violet-500", "bg-cyan-500", "bg-orange-500",
+];
+
 type Agreement = {
   id: string;
   client_id: string;
@@ -48,6 +57,7 @@ type Agreement = {
   status: string;
   created_at: string;
   signed_at: string | null;
+  contract_end_date: string | null;
   [key: string]: unknown;
 };
 
@@ -61,11 +71,8 @@ type Client = {
   agreements: Agreement[];
 };
 
-type ClientGroup = Omit<Client, "agreements"> & { agreements: Agreement[] };
-
 export default function Dashboard() {
   const [search, setSearch] = useState("");
-  const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
 
   const { data: clients, isLoading } = useQuery({
@@ -113,58 +120,130 @@ export default function Dashboard() {
   // Derive stats
   const allAgreements = clients?.flatMap((c) => c.agreements) ?? [];
   const totalClients = clients?.length ?? 0;
-  const draftCount = allAgreements.filter((a) => a.status === "draft").length;
-  const sentCount = allAgreements.filter((a) => a.status === "sent").length;
+  const totalBuildings = clients?.reduce((sum, c) => sum + (c.building_count ?? 0), 0) ?? 0;
   const signedCount = allAgreements.filter((a) => a.status === "signed").length;
+  const pipelineCount = allAgreements.filter((a) => a.status === "draft" || a.status === "sent").length;
 
-  // Filter clients by search and build groups
-  const filteredGroups: ClientGroup[] = useMemo(() => {
+  const now = new Date();
+
+  const expiringAgreements = useMemo(() => {
+    if (!clients) return [];
+    return allAgreements
+      .filter((a) => {
+        if (a.status !== "signed" || !a.contract_end_date) return false;
+        const daysLeft = differenceInDays(parseISO(a.contract_end_date), now);
+        return daysLeft >= 0 && daysLeft <= 90;
+      })
+      .map((a) => {
+        const client = clients.find((c) => c.id === a.client_id);
+        return {
+          ...a,
+          clientName: client?.name ?? "Unknown",
+          daysLeft: differenceInDays(parseISO(a.contract_end_date!), now),
+        };
+      })
+      .sort((a, b) => a.daysLeft - b.daysLeft);
+  }, [clients, allAgreements]);
+
+  // Market breakdown
+  const marketBreakdown = useMemo(() => {
+    if (!clients) return [];
+    const map: Record<string, { clients: number; buildings: number }> = {};
+    clients.forEach((c) => {
+      const market = c.markets || "Unassigned";
+      if (!map[market]) map[market] = { clients: 0, buildings: 0 };
+      map[market].clients++;
+      map[market].buildings += c.building_count ?? 0;
+    });
+    return Object.entries(map).map(([name, data]) => ({ name, ...data }));
+  }, [clients]);
+
+  const hasMarkets = marketBreakdown.some((m) => m.name !== "Unassigned");
+
+  // Filter clients by search
+  const filteredClients = useMemo(() => {
     if (!clients) return [];
     const q = search.toLowerCase();
-    return clients
-      .filter((c) => c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q))
-      .map((c) => ({ ...c }));
+    return clients.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q)
+    );
   }, [clients, search]);
-
-  // Expand all matching groups when search changes
-  useEffect(() => {
-    setExpandedClients(new Set(filteredGroups.map((g) => g.id)));
-  }, [filteredGroups]);
-
-  const toggleClient = (clientId: string) => {
-    setExpandedClients((prev) => {
-      const next = new Set(prev);
-      if (next.has(clientId)) next.delete(clientId);
-      else next.add(clientId);
-      return next;
-    });
-  };
 
   const stats = [
     { label: "Total Clients", value: totalClients, icon: Users },
-    { label: "Draft Agreements", value: draftCount, icon: FileText },
-    { label: "Sent Agreements", value: sentCount, icon: Send },
-    { label: "Signed Agreements", value: signedCount, icon: CheckCircle },
+    { label: "Buildings Managed", value: totalBuildings, icon: Building2 },
+    { label: "Active Agreements", value: signedCount, icon: CheckCircle },
+    { label: "Pipeline", value: pipelineCount, icon: TrendingUp },
+    {
+      label: "Expiring Soon",
+      value: expiringAgreements.length,
+      icon: AlertTriangle,
+      amber: expiringAgreements.length > 0,
+    },
   ];
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-foreground mb-6">Dashboard</h1>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {/* Section 1 — KPI Stat Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         {stats.map((s) => (
           <Card key={s.label}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{s.label}</CardTitle>
-              <s.icon className="h-4 w-4 text-muted-foreground" />
+              <s.icon className={`h-4 w-4 ${"amber" in s && s.amber ? "text-amber-500" : "text-muted-foreground"}`} />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{s.value}</div>
+              <div className={`text-2xl font-bold ${"amber" in s && s.amber ? "text-amber-500" : ""}`}>
+                {s.value}
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {/* Section 2 — Market Breakdown */}
+      {hasMarkets && (
+        <div className="flex flex-wrap gap-3 mb-6">
+          {marketBreakdown.map((m, i) => (
+            <Card key={m.name} className="flex-1 min-w-[160px] max-w-[220px]">
+              <CardContent className="p-4 flex items-start gap-3">
+                <span className={`mt-1 h-3 w-3 rounded-full shrink-0 ${MARKET_COLORS[i % MARKET_COLORS.length]}`} />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{m.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {m.clients} client{m.clients !== 1 ? "s" : ""} · {m.buildings} building{m.buildings !== 1 ? "s" : ""}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Section 3 — Expiring Contracts Alert */}
+      {expiringAgreements.length > 0 && (
+        <Alert className="mb-6 border-amber-400 bg-amber-50 dark:bg-amber-950/20">
+          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <AlertDescription className="ml-2">
+            <span className="font-semibold text-amber-700 dark:text-amber-400">
+              Contracts expiring within 90 days:
+            </span>{" "}
+            {expiringAgreements.map((a, i) => (
+              <span key={a.id}>
+                {i > 0 && ", "}
+                <Link
+                  to={`/agreements/${a.id}`}
+                  className="text-amber-700 dark:text-amber-400 underline hover:no-underline"
+                >
+                  {a.clientName} ({a.daysLeft}d)
+                </Link>
+              </span>
+            ))}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Search */}
       <div className="relative mb-4 max-w-sm">
@@ -177,11 +256,11 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Table / Empty State */}
+      {/* Section 4 — Client Table */}
       {isLoading ? (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {[...Array(4)].map((_, i) => (
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            {[...Array(5)].map((_, i) => (
               <Card key={i}>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <Skeleton className="h-4 w-24" />
@@ -219,131 +298,123 @@ export default function Dashboard() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-8" />
-                  <TableHead>Client / Service</TableHead>
+                  <TableHead>Client Name</TableHead>
                   <TableHead>Address</TableHead>
                   <TableHead>Markets</TableHead>
                   <TableHead>Buildings</TableHead>
+                  <TableHead>Services</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
+                  <TableHead>Contract End</TableHead>
                   <TableHead>Update Status</TableHead>
                   <TableHead>Delete</TableHead>
                 </TableRow>
               </TableHeader>
-              {filteredGroups.length === 0 ? (
-                <TableBody>
+              <TableBody>
+                {filteredClients.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                      No agreements match your search.
+                      No clients match your search.
                     </TableCell>
                   </TableRow>
-                </TableBody>
-              ) : (
-                filteredGroups.map((group) => {
-                  const isOpen = expandedClients.has(group.id);
-                  return (
-                    <TableBody key={group.id}>
-                      {/* Client header row */}
-                      <TableRow
-                        className="cursor-pointer hover:bg-muted/50 bg-muted/20"
-                        onClick={() => toggleClient(group.id)}
-                      >
-                        <TableCell className="w-8 px-2">
-                          <ChevronRight
-                            className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
-                          />
-                        </TableCell>
-                        <TableCell className="font-semibold">{group.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{group.address}</TableCell>
-                        <TableCell className="text-muted-foreground">{group.markets || "—"}</TableCell>
-                        <TableCell className="text-muted-foreground">{group.building_count ?? "—"}</TableCell>
-                        <TableCell>
-                          {group.agreements.length === 0 ? (
-                            <Link to="/new-client">
-                              <Badge variant="outline" className="text-xs text-muted-foreground">
-                                No agreements
-                              </Badge>
+                ) : (
+                  filteredClients.map((client) => {
+                    const a = client.agreements.sort(
+                      (x, y) => new Date(y.created_at).getTime() - new Date(x.created_at).getTime()
+                    )[0];
+                    return (
+                      <TableRow key={client.id}>
+                        <TableCell className="font-semibold">
+                          {a ? (
+                            <Link to={`/agreements/${a.id}`} className="text-primary hover:underline">
+                              {client.name}
                             </Link>
                           ) : (
-                            <Badge variant="outline" className="text-xs">
-                              {group.agreements.length} agreement{group.agreements.length !== 1 ? "s" : ""}
-                            </Badge>
+                            client.name
                           )}
                         </TableCell>
-                        <TableCell />
-                        <TableCell />
-                        <TableCell />
-                      </TableRow>
-                      {/* Agreement rows */}
-                      {isOpen &&
-                        group.agreements
-                          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                          .map((a) => (
-                            <TableRow key={a.id} className="bg-background">
-                              <TableCell />
-                              <TableCell className="pl-8">
-                                <Link to={`/agreements/${a.id}`} className="text-primary hover:underline">
-                                  <Badge variant="secondary" className="text-xs">
-                                    {(a.service_types || []).map(st => SERVICE_LABELS[st as keyof typeof SERVICE_LABELS] || st).join(", ")}
-                                  </Badge>
-                                </Link>
-                              </TableCell>
-                              <TableCell />
-                              <TableCell />
-                              <TableCell />
-                              <TableCell>
-                                <Badge className={statusColor(a.status)}>
-                                  {a.status.charAt(0).toUpperCase() + a.status.slice(1)}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{format(new Date(a.created_at), "MMM d, yyyy")}</TableCell>
-                              <TableCell>
-                                <Select
-                                  value={a.status}
-                                  onValueChange={(val) => updateStatus.mutate({ agreementId: a.id, status: val })}
+                        <TableCell className="text-muted-foreground">{client.address}</TableCell>
+                        <TableCell className="text-muted-foreground">{client.markets || "—"}</TableCell>
+                        <TableCell className="text-muted-foreground">{client.building_count ?? "—"}</TableCell>
+                        <TableCell>
+                          {a ? (
+                            <span className="text-xs">
+                              {(a.service_types || [])
+                                .map((st) => SERVICE_LABELS[st] || st)
+                                .join(", ")}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">No agreement</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {a ? (
+                            <Badge className={statusColor(a.status)}>
+                              {a.status.charAt(0).toUpperCase() + a.status.slice(1)}
+                            </Badge>
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {a?.contract_end_date
+                            ? format(parseISO(a.contract_end_date), "MMM d, yyyy")
+                            : "—"}
+                        </TableCell>
+                        <TableCell>
+                          {a && (
+                            <Select
+                              value={a.status}
+                              onValueChange={(val) =>
+                                updateStatus.mutate({ agreementId: a.id, status: val })
+                              }
+                            >
+                              <SelectTrigger className="w-[110px] h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="draft">Draft</SelectItem>
+                                <SelectItem value="sent">Sent</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {a && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
                                 >
-                                  <SelectTrigger className="w-[110px] h-8 text-xs">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="draft">Draft</SelectItem>
-                                    <SelectItem value="sent">Sent</SelectItem>
-                                    
-                                  </SelectContent>
-                                </Select>
-                              </TableCell>
-                              <TableCell>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Delete agreement?</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        This will permanently delete this agreement. This action cannot be undone.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                        onClick={() => deleteAgreement.mutate(a.id)}
-                                      >
-                                        Delete
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                    </TableBody>
-                  );
-                })
-              )}
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete agreement?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will permanently delete this agreement. This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    onClick={() => deleteAgreement.mutate(a.id)}
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
             </Table>
           </CardContent>
         </Card>
