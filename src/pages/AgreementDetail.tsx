@@ -232,7 +232,7 @@ export default function AgreementDetail() {
     return {
       clientName: client?.name || "",
       address: client?.address || "",
-      serviceType: agreement?.service_type || "",
+      serviceType: (agreement?.service_types || []).join(", "),
       agreementId: agreement?.id || "",
       pdfBase64,
     };
