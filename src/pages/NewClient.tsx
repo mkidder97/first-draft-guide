@@ -127,9 +127,10 @@ export default function NewClient() {
         status: "draft" as const,
       }));
 
-      const { error: agreementError } = await supabase
+      const { data: insertedAgreements, error: agreementError } = await supabase
         .from("agreements")
-        .insert(agreementRows);
+        .insert(agreementRows)
+        .select("id");
 
       if (agreementError) throw agreementError;
 
@@ -138,7 +139,11 @@ export default function NewClient() {
         description: `${fields.clientName} added with ${fields.serviceTypes.length} draft agreement(s).`,
       });
 
-      navigate("/agreements");
+      if (insertedAgreements && insertedAgreements.length === 1) {
+        navigate(`/agreements/${insertedAgreements[0].id}`);
+      } else {
+        navigate("/");
+      }
     } catch (err: any) {
       console.error("Submit error:", err);
       setSubmitError(err?.message || "Failed to save. Please try again.");
