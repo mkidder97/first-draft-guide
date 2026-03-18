@@ -364,6 +364,30 @@ export default function AgreementDetail() {
             </Button>
           )}
 
+          {agreement.status !== "signed" && (
+            <>
+              <Button
+                variant="outline"
+                disabled
+                className="gap-2 opacity-60 cursor-not-allowed"
+                title="Coming soon — send agreement to client for e-signature"
+              >
+                <Send className="h-4 w-4" />
+                Send for Signature
+                <Badge variant="secondary" className="ml-1 text-xs px-1.5">Soon</Badge>
+              </Button>
+              <Button
+                variant="outline"
+                disabled
+                className="gap-2 opacity-60 cursor-not-allowed"
+                title="Coming soon — Claude will incorporate scope notes into the agreement language"
+              >
+                <Sparkles className="h-4 w-4" />
+                AI Draft
+                <Badge variant="secondary" className="ml-1 text-xs px-1.5">Soon</Badge>
+              </Button>
+            </>
+          )}
 
           <Button onClick={generatePDF} className="gap-2">
             <Download className="h-4 w-4" />
