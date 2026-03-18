@@ -26,7 +26,7 @@ interface ClientFields {
   buildingCount: string;
   markets: string;
   duration: string;
-  frequency: string;
+  
   scopeNotes: string;
 }
 
