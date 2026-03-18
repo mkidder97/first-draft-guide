@@ -348,12 +348,8 @@ export default function AgreementDetail() {
               {isMarking ? "Marking…" : "Mark as Signed"}
             </Button>
           )}
-          {hasCombined && (
-            <Button variant="outline" onClick={generateCombinedPDF} className="gap-2">
-              <FileStack className="h-4 w-4" />
-              Generate Combined PDF
-            </Button>
-          )}
+
+
           <Button onClick={generatePDF} className="gap-2">
             <Download className="h-4 w-4" />
             Generate PDF
