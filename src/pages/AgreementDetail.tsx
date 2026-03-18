@@ -219,7 +219,7 @@ export default function AgreementDetail() {
       ["AGREEMENT DATE:", format(new Date(agreement!.created_at), "MMMM d, yyyy")],
       ["DURATION:", agreement!.duration || "—"],
       ["FREQUENCY:", agreement!.frequency || "—"],
-      ["SERVICE TYPE:", formatServiceType(agreement!.service_type)],
+      ["SERVICE TYPE:", (agreement!.service_types || []).map(formatServiceType).join(", ")],
     ]);
     ctx.addHeading("SCOPE OF SERVICES");
     ctx.addBody(SCOPE_PARAGRAPHS[agreement!.service_type] || "Scope to be determined.");
