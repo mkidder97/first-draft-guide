@@ -127,9 +127,10 @@ export default function NewClient() {
         status: "draft" as const,
       }));
 
-      const { error: agreementError } = await supabase
+      const { data: insertedAgreements, error: agreementError } = await supabase
         .from("agreements")
-        .insert(agreementRows);
+        .insert(agreementRows)
+        .select("id");
 
       if (agreementError) throw agreementError;
 
