@@ -308,7 +308,7 @@ export default function Dashboard() {
                                   <SelectContent>
                                     <SelectItem value="draft">Draft</SelectItem>
                                     <SelectItem value="sent">Sent</SelectItem>
-                                    <SelectItem value="signed">Signed</SelectItem>
+                                    
                                   </SelectContent>
                                 </Select>
                               </TableCell>
