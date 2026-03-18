@@ -134,7 +134,7 @@ export default function NewClient() {
 
       toast({
         title: "Client created",
-        description: `${fields.clientName} added with ${fields.serviceTypes.length} draft agreement(s).`,
+        description: `${fields.clientName} added with 1 draft agreement.`,
       });
 
       if (insertedAgreements && insertedAgreements.length === 1) {

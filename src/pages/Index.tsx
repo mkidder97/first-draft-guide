@@ -44,7 +44,7 @@ function statusColor(status: string) {
 type Agreement = {
   id: string;
   client_id: string;
-  service_type: string;
+  service_types: string[];
   status: string;
   created_at: string;
   signed_at: string | null;
