@@ -198,7 +198,7 @@ export default function AgreementDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("agreements")
-        .select("*, clients(*)")
+        .select("*, clients(*, contacts(*))")
         .eq("id", id!)
         .single();
       if (error) throw error;
@@ -207,7 +207,8 @@ export default function AgreementDetail() {
     enabled: !!id,
   });
 
-  const client = agreement?.clients as { name: string; address: string } | null;
+  const client = agreement?.clients as { name: string; address: string; contacts?: { name: string; email: string; phone?: string; title?: string; company?: string } | null } | null;
+  const contact = client?.contacts || null;
   const canSign = agreement?.status === "draft" || agreement?.status === "sent";
 
   // ─── Reopen handler ─────────────────────────────────────────
@@ -262,10 +263,11 @@ export default function AgreementDetail() {
     ctx.addHeader();
     ctx.addClientInfo([
       ["CLIENT:", client?.name || "—"],
+      ["CONTACT:", contact?.name || "—"],
+      ["CONTACT EMAIL:", contact?.email || "—"],
       ["PROPERTY ADDRESS:", client?.address || "—"],
       ["AGREEMENT DATE:", format(new Date(agreement!.created_at), "MMMM d, yyyy")],
       ["DURATION:", agreement!.duration || "—"],
-      
       ["SERVICE TYPE:", (agreement!.service_types || []).map(formatServiceType).join(", ")],
     ]);
     const annotImg1 = fresh?.annotation_image || (agreement as any).annotation_image;
@@ -338,10 +340,11 @@ export default function AgreementDetail() {
     ctx.addHeader();
     ctx.addClientInfo([
       ["CLIENT:", client?.name || "—"],
+      ["CONTACT:", contact?.name || "—"],
+      ["CONTACT EMAIL:", contact?.email || "—"],
       ["PROPERTY ADDRESS:", client?.address || "—"],
       ["AGREEMENT DATE:", format(new Date(agreement.created_at), "MMMM d, yyyy")],
       ["DURATION:", agreement.duration || "—"],
-      
       ["SERVICE TYPE:", (agreement.service_types || []).map(formatServiceType).join(", ")],
     ]);
     const annotImg2 = (agreement as any).annotation_image;
@@ -496,10 +499,12 @@ export default function AgreementDetail() {
           {/* Client Info */}
           <div className="grid grid-cols-2 gap-x-8 gap-y-2 border rounded-md p-4 bg-muted/30">
             <InfoRow label="CLIENT" value={client?.name || "—"} />
+            <InfoRow label="CONTACT" value={contact ? `${contact.name}${contact.title ? ` — ${contact.title}` : ""}` : "—"} />
+            <InfoRow label="CONTACT EMAIL" value={contact?.email || "—"} />
+            {contact?.phone && <InfoRow label="CONTACT PHONE" value={contact.phone} />}
             <InfoRow label="PROPERTY ADDRESS" value={client?.address || "—"} />
             <InfoRow label="AGREEMENT DATE" value={format(new Date(agreement.created_at), "MMMM d, yyyy")} />
             <InfoRow label="DURATION" value={agreement.duration || "—"} />
-            
             <InfoRow label="SERVICES" value={(agreement.service_types || []).map(formatServiceType).join(", ")} />
           </div>
 

@@ -39,7 +39,7 @@ export default function Clients() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("clients")
-        .select("*, agreements(*)")
+        .select("*, agreements(*), contacts(*)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -101,8 +101,9 @@ export default function Clients() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Address</TableHead>
+                   <TableHead>Client</TableHead>
+                   <TableHead>Contact</TableHead>
+                   <TableHead>Address</TableHead>
                   <TableHead>Markets</TableHead>
                   <TableHead>Buildings</TableHead>
                   <TableHead>Services</TableHead>
@@ -117,6 +118,11 @@ export default function Clients() {
                   return (
                     <TableRow key={client.id}>
                       <TableCell className="font-medium">{client.name}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {(client as any).contacts?.name
+                          ? `${(client as any).contacts.name}${(client as any).contacts.email ? ` (${(client as any).contacts.email})` : ""}`
+                          : "—"}
+                      </TableCell>
                       <TableCell>{client.address}</TableCell>
                       <TableCell>{client.markets || "—"}</TableCell>
                       <TableCell>{client.building_count ?? "—"}</TableCell>

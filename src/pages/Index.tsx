@@ -61,6 +61,13 @@ type Agreement = {
   [key: string]: unknown;
 };
 
+type Contact = {
+  name: string;
+  email: string;
+  phone?: string;
+  title?: string;
+} | null;
+
 type Client = {
   id: string;
   name: string;
@@ -69,6 +76,7 @@ type Client = {
   building_count: number | null;
   created_at: string;
   agreements: Agreement[];
+  contacts: Contact;
 };
 
 export default function Dashboard() {
@@ -81,7 +89,7 @@ export default function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("clients")
-        .select("*, agreements(*)")
+        .select("*, agreements(*), contacts(*)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Client[];
@@ -354,8 +362,9 @@ export default function Dashboard() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Client Name</TableHead>
-                  <TableHead>Address</TableHead>
+                   <TableHead>Client Name</TableHead>
+                   <TableHead>Contact</TableHead>
+                   <TableHead>Address</TableHead>
                   <TableHead>Markets</TableHead>
                   <TableHead>Buildings</TableHead>
                   <TableHead>Services</TableHead>
@@ -369,7 +378,7 @@ export default function Dashboard() {
               <TableBody>
                 {filteredClients.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                       No clients match your search.
                     </TableCell>
                   </TableRow>
@@ -389,6 +398,7 @@ export default function Dashboard() {
                             client.name
                           )}
                         </TableCell>
+                        <TableCell className="text-muted-foreground text-xs">{client.contacts?.name || "—"}</TableCell>
                         <TableCell className="text-muted-foreground">{client.address}</TableCell>
                         <TableCell className="text-muted-foreground">{client.markets || "—"}</TableCell>
                         <TableCell className="text-muted-foreground">{client.building_count ?? "—"}</TableCell>
