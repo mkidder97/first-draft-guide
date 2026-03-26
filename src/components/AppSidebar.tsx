@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 const navItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "New Client", url: "/new-client", icon: PlusCircle },
+  { title: "Contacts", url: "/contacts", icon: Contact },
   { title: "Clients", url: "/agreements", icon: Users },
 ];
 
