@@ -263,10 +263,11 @@ export default function AgreementDetail() {
     ctx.addHeader();
     ctx.addClientInfo([
       ["CLIENT:", client?.name || "—"],
+      ["CONTACT:", contact?.name || "—"],
+      ["CONTACT EMAIL:", contact?.email || "—"],
       ["PROPERTY ADDRESS:", client?.address || "—"],
       ["AGREEMENT DATE:", format(new Date(agreement!.created_at), "MMMM d, yyyy")],
       ["DURATION:", agreement!.duration || "—"],
-      
       ["SERVICE TYPE:", (agreement!.service_types || []).map(formatServiceType).join(", ")],
     ]);
     const annotImg1 = fresh?.annotation_image || (agreement as any).annotation_image;
