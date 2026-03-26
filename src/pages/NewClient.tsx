@@ -488,6 +488,7 @@ function FieldsForm({
   satelliteImageUrl,
   onSatelliteError,
   satelliteError,
+  nearestAirport,
 }: {
   fields: ClientFields;
   updateField: (key: keyof ClientFields, value: string | string[] | null) => void;
@@ -500,6 +501,7 @@ function FieldsForm({
   satelliteImageUrl: string | null;
   onSatelliteError: () => void;
   satelliteError: boolean;
+  nearestAirport: string | null;
 }) {
   const [showResults, setShowResults] = useState(false);
 
