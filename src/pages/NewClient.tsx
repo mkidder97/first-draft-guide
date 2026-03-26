@@ -73,6 +73,95 @@ export default function NewClient() {
     enabled: contactSearch.length > 1,
   });
 
+  const AIRPORTS = [
+    { code: "DFW", name: "Dallas/Fort Worth International", cities: ["dallas", "fort worth", "irving", "frisco", "plano", "arlington", "southlake", "grapevine", "colleyville", "euless", "bedford", "hurst", "keller", "flower mound", "lewisville", "carrollton", "farmers branch"] },
+    { code: "DAL", name: "Dallas Love Field", cities: ["highland park", "university park", "addison", "richardson", "garland", "mesquite", "balch springs"] },
+    { code: "IAH", name: "Houston George Bush Intercontinental", cities: ["houston", "humble", "the woodlands", "spring", "conroe", "kingwood", "tomball", "cypress", "katy", "sugar land", "stafford"] },
+    { code: "HOU", name: "Houston William P. Hobby", cities: ["pearland", "pasadena", "friendswood", "league city", "webster", "clear lake", "missouri city"] },
+    { code: "AUS", name: "Austin-Bergstrom International", cities: ["austin", "round rock", "cedar park", "pflugerville", "georgetown", "kyle", "buda", "lakeway", "bee cave"] },
+    { code: "SAT", name: "San Antonio International", cities: ["san antonio", "new braunfels", "san marcos", "schertz", "converse", "universal city", "leon valley"] },
+    { code: "ELP", name: "El Paso International", cities: ["el paso", "socorro", "anthony"] },
+    { code: "LBB", name: "Lubbock Preston Smith International", cities: ["lubbock", "wolfforth", "slaton"] },
+    { code: "AMA", name: "Rick Husband Amarillo International", cities: ["amarillo", "canyon"] },
+    { code: "MAF", name: "Midland International Air & Space Port", cities: ["midland", "odessa"] },
+    { code: "CRP", name: "Corpus Christi International", cities: ["corpus christi", "portland"] },
+    { code: "HRL", name: "Valley International", cities: ["harlingen", "mcallen", "brownsville", "edinburg", "mission", "pharr"] },
+    { code: "TYR", name: "Tyler Pounds Regional", cities: ["tyler", "longview", "nacogdoches"] },
+    { code: "ACT", name: "Waco Regional", cities: ["waco", "temple", "killeen"] },
+    { code: "ATL", name: "Hartsfield-Jackson Atlanta International", cities: ["atlanta", "buckhead", "marietta", "decatur", "sandy springs", "alpharetta", "roswell", "smyrna", "dunwoody", "peachtree city", "newnan"] },
+    { code: "MCO", name: "Orlando International", cities: ["orlando", "kissimmee", "sanford", "oviedo", "lake mary", "altamonte springs", "winter park", "maitland"] },
+    { code: "MIA", name: "Miami International", cities: ["miami", "coral gables", "hialeah", "miami beach", "doral", "kendall", "homestead", "florida city", "sweetwater"] },
+    { code: "FLL", name: "Fort Lauderdale-Hollywood International", cities: ["fort lauderdale", "hollywood", "pembroke pines", "miramar", "davie", "weston", "plantation", "sunrise", "tamarac", "coral springs"] },
+    { code: "TPA", name: "Tampa International", cities: ["tampa", "st. petersburg", "clearwater", "brandon", "lakeland", "sarasota", "bradenton"] },
+    { code: "JAX", name: "Jacksonville International", cities: ["jacksonville", "orange park", "fleming island", "st. augustine"] },
+    { code: "MSY", name: "Louis Armstrong New Orleans International", cities: ["new orleans", "metairie", "kenner", "gretna", "harvey", "marrero", "baton rouge", "slidell"] },
+    { code: "BHM", name: "Birmingham-Shuttlesworth International", cities: ["birmingham", "hoover", "vestavia hills", "mountain brook", "tuscaloosa"] },
+    { code: "MEM", name: "Memphis International", cities: ["memphis", "germantown", "collierville", "bartlett", "cordova"] },
+    { code: "BNA", name: "Nashville International", cities: ["nashville", "brentwood", "franklin", "murfreesboro", "smyrna", "hendersonville", "gallatin", "mt. juliet"] },
+    { code: "CLT", name: "Charlotte Douglas International", cities: ["charlotte", "concord", "gastonia", "kannapolis", "mooresville", "huntersville", "rock hill"] },
+    { code: "RDU", name: "Raleigh-Durham International", cities: ["raleigh", "durham", "cary", "chapel hill", "apex", "morrisville", "wake forest"] },
+    { code: "GSO", name: "Piedmont Triad International", cities: ["greensboro", "winston-salem", "high point"] },
+    { code: "CHS", name: "Charleston International", cities: ["charleston", "north charleston", "mount pleasant", "summerville", "goose creek"] },
+    { code: "SAV", name: "Savannah/Hilton Head International", cities: ["savannah", "pooler", "richmond hill", "hilton head"] },
+    { code: "GSP", name: "Greenville-Spartanburg International", cities: ["greenville", "spartanburg", "anderson", "simpsonville", "greer"] },
+    { code: "MKE", name: "Milwaukee Mitchell International", cities: ["milwaukee", "wauwatosa", "west allis", "greenfield", "brookfield", "waukesha", "racine", "kenosha"] },
+    { code: "JFK", name: "John F. Kennedy International", cities: ["new york", "brooklyn", "queens", "long island city", "astoria", "flushing", "jamaica"] },
+    { code: "LGA", name: "LaGuardia", cities: ["bronx", "manhattan", "new york city", "nyc"] },
+    { code: "EWR", name: "Newark Liberty International", cities: ["newark", "jersey city", "hoboken", "elizabeth", "union", "irvington"] },
+    { code: "BOS", name: "Boston Logan International", cities: ["boston", "cambridge", "somerville", "quincy", "braintree", "dedham", "waltham", "newton", "brookline"] },
+    { code: "PHL", name: "Philadelphia International", cities: ["philadelphia", "camden", "cherry hill", "king of prussia", "wilmington", "bucks county"] },
+    { code: "BWI", name: "Baltimore/Washington International", cities: ["baltimore", "columbia", "bowie", "laurel", "annapolis", "glen burnie"] },
+    { code: "IAD", name: "Washington Dulles International", cities: ["dulles", "herndon", "reston", "ashburn", "sterling", "chantilly", "fairfax", "vienna", "tyson"] },
+    { code: "DCA", name: "Ronald Reagan Washington National", cities: ["washington", "arlington", "alexandria", "crystal city", "dc", "pentagon city"] },
+    { code: "PIT", name: "Pittsburgh International", cities: ["pittsburgh", "cranberry", "moon township"] },
+    { code: "BUF", name: "Buffalo Niagara International", cities: ["buffalo", "niagara falls", "amherst", "cheektowaga", "williamsville"] },
+    { code: "HPN", name: "Westchester County Airport", cities: ["white plains", "yonkers", "mount vernon", "new rochelle", "westchester"] },
+    { code: "ORD", name: "Chicago O'Hare International", cities: ["chicago", "schaumburg", "arlington heights", "des plaines", "elk grove village", "itasca", "wood dale", "bensenville", "roselle", "bloomingdale"] },
+    { code: "MDW", name: "Chicago Midway International", cities: ["berwyn", "cicero", "oak lawn", "evergreen park", "bridgeview", "burbank"] },
+    { code: "DTW", name: "Detroit Metropolitan", cities: ["detroit", "dearborn", "livonia", "westland", "ann arbor", "ypsilanti", "taylor", "romulus", "wayne"] },
+    { code: "MSP", name: "Minneapolis-St. Paul International", cities: ["minneapolis", "st. paul", "saint paul", "bloomington", "eden prairie", "plymouth", "maple grove", "brooklyn park", "minnetonka"] },
+    { code: "STL", name: "St. Louis Lambert International", cities: ["st. louis", "saint louis", "chesterfield", "ballwin", "florissant", "hazelwood", "bridgeton", "st. charles"] },
+    { code: "CMH", name: "John Glenn Columbus International", cities: ["columbus", "dublin", "westerville", "grove city", "gahanna", "reynoldsburg"] },
+    { code: "CLE", name: "Cleveland Hopkins International", cities: ["cleveland", "lakewood", "parma", "strongsville", "westlake", "fairview park", "rocky river"] },
+    { code: "IND", name: "Indianapolis International", cities: ["indianapolis", "carmel", "fishers", "noblesville", "greenwood", "plainfield"] },
+    { code: "OKC", name: "Will Rogers World Airport", cities: ["oklahoma city", "edmond", "norman", "moore", "midwest city", "del city", "yukon"] },
+    { code: "TUL", name: "Tulsa International", cities: ["tulsa", "broken arrow", "owasso", "bixby", "jenks", "sand springs"] },
+    { code: "MCI", name: "Kansas City International", cities: ["kansas city", "overland park", "olathe", "lenexa", "shawnee", "leawood", "independence", "liberty"] },
+    { code: "OMA", name: "Eppley Airfield", cities: ["omaha", "council bluffs", "bellevue", "papillion", "la vista"] },
+    { code: "DSM", name: "Des Moines International", cities: ["des moines", "ankeny", "urbandale", "west des moines", "clive", "johnston"] },
+    { code: "LIT", name: "Bill and Hillary Clinton National", cities: ["little rock", "north little rock", "conway", "sherwood", "jacksonville"] },
+    { code: "LAX", name: "Los Angeles International", cities: ["los angeles", "santa monica", "culver city", "inglewood", "hawthorne", "el segundo", "manhattan beach", "redondo beach", "torrance", "long beach"] },
+    { code: "SFO", name: "San Francisco International", cities: ["san francisco", "south san francisco", "daly city", "san mateo", "burlingame", "millbrae"] },
+    { code: "SJC", name: "Norman Y. Mineta San Jose International", cities: ["san jose", "santa clara", "sunnyvale", "milpitas", "campbell"] },
+    { code: "OAK", name: "Oakland International", cities: ["oakland", "alameda", "berkeley", "emeryville", "san leandro", "fremont", "hayward"] },
+    { code: "SEA", name: "Seattle-Tacoma International", cities: ["seattle", "tacoma", "bellevue", "redmond", "kirkland", "renton", "kent", "federal way", "auburn", "tukwila"] },
+    { code: "PDX", name: "Portland International", cities: ["portland", "gresham", "beaverton", "hillsboro", "lake oswego", "tigard", "vancouver"] },
+    { code: "PHX", name: "Phoenix Sky Harbor International", cities: ["phoenix", "scottsdale", "tempe", "chandler", "gilbert", "mesa", "glendale", "peoria", "surprise"] },
+    { code: "LAS", name: "Harry Reid International (Las Vegas)", cities: ["las vegas", "henderson", "north las vegas", "summerlin", "boulder city"] },
+    { code: "DEN", name: "Denver International", cities: ["denver", "aurora", "lakewood", "thornton", "arvada", "westminster", "centennial", "highlands ranch", "littleton", "englewood", "parker"] },
+    { code: "SLC", name: "Salt Lake City International", cities: ["salt lake city", "west valley city", "west jordan", "sandy", "orem", "provo", "ogden", "murray"] },
+    { code: "ABQ", name: "Albuquerque International Sunport", cities: ["albuquerque", "rio rancho", "santa fe"] },
+    { code: "TUS", name: "Tucson International", cities: ["tucson", "marana", "sahuarita", "green valley", "oro valley"] },
+    { code: "BUR", name: "Hollywood Burbank Airport", cities: ["burbank", "glendale", "pasadena", "san fernando", "north hollywood", "studio city"] },
+    { code: "SNA", name: "John Wayne Airport", cities: ["santa ana", "anaheim", "irvine", "costa mesa", "newport beach", "huntington beach", "garden grove", "orange", "tustin"] },
+    { code: "SAN", name: "San Diego International", cities: ["san diego", "chula vista", "el cajon", "santee", "la mesa", "national city", "coronado"] },
+    { code: "SMF", name: "Sacramento International", cities: ["sacramento", "roseville", "elk grove", "folsom", "rancho cordova", "davis", "woodland", "stockton"] },
+    { code: "BZN", name: "Bozeman Yellowstone International", cities: ["bozeman", "billings"] },
+    { code: "BOI", name: "Boise Airport", cities: ["boise", "nampa", "meridian", "caldwell", "eagle", "kuna"] },
+    { code: "HNL", name: "Daniel K. Inouye International (Honolulu)", cities: ["honolulu", "pearl city", "ewa beach", "kapolei", "aiea", "kailua"] },
+    { code: "ANC", name: "Ted Stevens Anchorage International", cities: ["anchorage", "eagle river", "wasilla", "palmer"] },
+  ];
+
+  useEffect(() => {
+    if (!fields.address) {
+      setNearestAirport(null);
+      return;
+    }
+    const lower = fields.address.toLowerCase();
+    const match = AIRPORTS.find((a) => a.cities.some((city) => lower.includes(city)));
+    setNearestAirport(match ? `${match.code} — ${match.name}` : null);
+  }, [fields.address]);
+
   // Auto-detect market from address
   useEffect(() => {
     if (!fields.address) return;
