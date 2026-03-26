@@ -1,34 +1,39 @@
 
 
-## Add Drag-to-Move for Drawn Shapes
+## Fix: Annotation Image Missing from OneDrive PDF
 
-Single file: `src/components/PropertyAnnotator.tsx`
-
-### Problem
-After drawing a shape, the user cannot reposition it. They can select it and rotate it, but there's no way to drag it to a different location.
+### Root Cause
+The agreement data is fetched once when the page loads. When the user saves annotations in the PropertyAnnotator, the `annotation_image` is written to the database but the **react-query cache is never invalidated**. So when "Mark as Signed" fires `buildWebhookPayload()`, it uses the stale `agreement` object which has `annotation_image: null`.
 
 ### Solution
-When a shape is selected and the user clicks-and-drags on it, move the shape by updating all its points by the drag delta.
+Two changes in `src/pages/AgreementDetail.tsx`:
 
-### Changes
+1. **Re-fetch agreement before building webhook PDF**: In `handleMarkSigned`, after the status update and cache invalidation, **await the refetch** so the `agreement` object has the latest `annotation_image` before calling `buildWebhookPayload()`. Alternatively, fetch the annotation_image directly from the DB inside `buildWebhookPayload`.
 
-1. **New state**: `dragStart: Point | null` — tracks the mouse position at the start of a drag on a selected shape
+2. **Also invalidate after PropertyAnnotator saves**: Pass an `onSave` callback to `PropertyAnnotator` that invalidates the `["agreement", id]` query, so the cached agreement stays current even before signing.
 
-2. **Update `handleMouseDown`**: When clicking on an already-selected shape, start a drag instead of re-selecting. Record the click point as `dragStart`.
+### Preferred approach — fresh fetch in buildWebhookPayload
+Change `buildWebhookPayload` from a sync function to async. Before building the PDF, do a fresh single-row fetch of the agreement to get the latest `annotation_image`:
 
-3. **Update `handleMouseMove`**: When `dragStart` is set (dragging a selected shape), calculate the delta from `dragStart` to current mouse position. Update all points of the selected shape by that delta. Update `dragStart` to current point (continuous dragging).
+```typescript
+async function buildWebhookPayload() {
+  // Fresh fetch to get latest annotation_image
+  const { data: fresh } = await supabase
+    .from("agreements")
+    .select("*")
+    .eq("id", agreement!.id)
+    .single();
+  
+  const annotImg = fresh?.annotation_image || (agreement as any).annotation_image;
+  // ... rest of PDF building, use annotImg instead of (agreement as any).annotation_image
+}
+```
 
-4. **Update `handleMouseUp`**: Clear `dragStart`.
+Update callers (`handleMarkSigned`, retry handler) to `await buildWebhookPayload()`.
 
-5. **Cursor feedback**: When hovering over a shape, show `cursor-move` instead of `cursor-crosshair`. This requires tracking hover state or applying it when a shape is selected.
+### Also: onSave callback for PropertyAnnotator
+Pass `onSave={() => queryClient.invalidateQueries({ queryKey: ["agreement", id] })}` to the `<PropertyAnnotator>` component so the local cache refreshes after annotation save. This ensures "Generate PDF" (local download) also picks up the latest annotation.
 
-### Interaction flow
-- Click empty area → start drawing new shape
-- Click existing shape (nothing selected) → select it (highlight + sync rotation slider)
-- Click-and-drag on selected shape → move it
-- Click empty area while shape selected → deselect, start new drawing
-- Escape → deselect
-
-### Technical detail
-For rectangles, moving means adding delta to both corner points. For freehand, adding delta to every point in the array. The drag uses continuous delta (updating dragStart each mouse move) for smooth movement.
+### Files changed
+- `src/pages/AgreementDetail.tsx` only
 
