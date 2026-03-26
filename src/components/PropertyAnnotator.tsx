@@ -13,6 +13,7 @@ interface Shape {
   color: string;
   label: string;
   points: Point[];
+  rotation?: number;
 }
 
 interface Props {
@@ -34,6 +35,38 @@ const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyA5l3MGWK6jked
 
 const mapContainerStyle = { width: "100%", height: "400px" };
 
+function drawRotatedRect(
+  ctx: CanvasRenderingContext2D,
+  a: Point, b: Point,
+  rotation: number,
+  fillColor: string, borderColor: string,
+  label?: string
+) {
+  const cx = (a.x + b.x) / 2;
+  const cy = (a.y + b.y) / 2;
+  const w = b.x - a.x;
+  const h = b.y - a.y;
+  const rad = (rotation * Math.PI) / 180;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rad);
+
+  ctx.fillStyle = fillColor;
+  ctx.fillRect(-w / 2, -h / 2, w, h);
+  ctx.strokeStyle = borderColor;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(-w / 2, -h / 2, w, h);
+
+  if (label) {
+    ctx.fillStyle = borderColor;
+    ctx.font = "bold 13px sans-serif";
+    ctx.fillText(label, -w / 2 + 4, -h / 2 + 16);
+  }
+
+  ctx.restore();
+}
+
 export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, existingAnnotations, onSaved }: Props) {
   const { isLoaded } = useJsApiLoader({ id: "google-map-script", googleMapsApiKey: API_KEY });
 
@@ -41,7 +74,6 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
-  // Phase: "navigate" = interactive map, "annotate" = frozen canvas
   const hasExisting = !!(existingAnnotations && existingAnnotations.length > 0 && existingSatelliteUrl);
   const [phase, setPhase] = useState<"navigate" | "annotate">(hasExisting ? "annotate" : "navigate");
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
@@ -57,8 +89,9 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
   const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [shapeRotation, setShapeRotation] = useState(0);
 
-  // Geocode address to get initial center
+  // Geocode address
   useEffect(() => {
     if (!isLoaded || !address || center) return;
     const geocoder = new window.google.maps.Geocoder();
@@ -67,8 +100,7 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
         const loc = results[0].geometry.location;
         setCenter({ lat: loc.lat(), lng: loc.lng() });
       } else {
-        // Fallback: try to parse coords or use a default
-        setCenter({ lat: 29.7604, lng: -95.3698 }); // Houston default
+        setCenter({ lat: 29.7604, lng: -95.3698 });
       }
     });
   }, [isLoaded, address, center]);
@@ -92,12 +124,11 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
     const c = map.getCenter();
     const z = map.getZoom();
     if (!c || z === undefined) return;
-    const lat = c.lat();
-    const lng = c.lng();
     const heading = map.getHeading() || 0;
-    const url = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${z}&size=640x640&maptype=satellite&scale=2&heading=${heading}&key=${API_KEY}`;
+    const url = `https://maps.googleapis.com/maps/api/staticmap?center=${c.lat()},${c.lng()}&zoom=${z}&size=640x640&maptype=satellite&scale=2&heading=${heading}&key=${API_KEY}`;
     setStaticUrl(url);
     setImgLoaded(false);
+    setShapeRotation(heading);
     setPhase("annotate");
   };
 
@@ -106,7 +137,6 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
     setImgLoaded(false);
   };
 
-  // Canvas drawing logic
   const getCanvasPoint = (e: React.MouseEvent): Point => {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
@@ -116,6 +146,28 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
     };
   };
 
+  const drawShape = useCallback((ctx: CanvasRenderingContext2D, shape: Shape) => {
+    const borderColor = COLOR_PRESETS.find(c => c.color === shape.color)?.border || shape.color;
+    if (shape.type === "rect" && shape.points.length === 2) {
+      drawRotatedRect(ctx, shape.points[0], shape.points[1], shape.rotation || 0, shape.color, borderColor, shape.label);
+    } else if (shape.type === "freehand" && shape.points.length > 1) {
+      ctx.fillStyle = shape.color;
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(shape.points[0].x, shape.points[0].y);
+      shape.points.forEach(p => ctx.lineTo(p.x, p.y));
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      if (shape.label) {
+        ctx.fillStyle = borderColor;
+        ctx.font = "bold 13px sans-serif";
+        ctx.fillText(shape.label, shape.points[0].x + 4, shape.points[0].y + 16);
+      }
+    }
+  }, []);
+
   const redraw = useCallback((shapesToDraw: Shape[], previewPoints?: Point[]) => {
     const canvas = canvasRef.current;
     const img = imgRef.current;
@@ -124,46 +176,17 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight);
 
-    shapesToDraw.forEach((shape) => {
-      ctx.fillStyle = shape.color;
-      const borderColor = COLOR_PRESETS.find(c => c.color === shape.color)?.border || shape.color;
-      ctx.strokeStyle = borderColor;
-      ctx.lineWidth = 2;
-      if (shape.type === "rect" && shape.points.length === 2) {
-        const [a, b] = shape.points;
-        ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
-        ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
-        if (shape.label) {
-          ctx.fillStyle = borderColor;
-          ctx.font = "bold 13px sans-serif";
-          ctx.fillText(shape.label, a.x + 4, a.y + 16);
-        }
-      } else if (shape.type === "freehand" && shape.points.length > 1) {
-        ctx.beginPath();
-        ctx.moveTo(shape.points[0].x, shape.points[0].y);
-        shape.points.forEach(p => ctx.lineTo(p.x, p.y));
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        if (shape.label) {
-          ctx.fillStyle = borderColor;
-          ctx.font = "bold 13px sans-serif";
-          ctx.fillText(shape.label, shape.points[0].x + 4, shape.points[0].y + 16);
-        }
-      }
-    });
+    shapesToDraw.forEach(shape => drawShape(ctx, shape));
 
     // Draw preview
     if (previewPoints && previewPoints.length > 0) {
-      ctx.fillStyle = selectedColor.color;
-      ctx.strokeStyle = selectedColor.border;
-      ctx.lineWidth = 2;
       ctx.setLineDash([4, 4]);
       if (tool === "rect" && previewPoints.length === 2) {
-        const [a, b] = previewPoints;
-        ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
-        ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
+        drawRotatedRect(ctx, previewPoints[0], previewPoints[1], shapeRotation, selectedColor.color, selectedColor.border);
       } else if (tool === "freehand") {
+        ctx.fillStyle = selectedColor.color;
+        ctx.strokeStyle = selectedColor.border;
+        ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(previewPoints[0].x, previewPoints[0].y);
         previewPoints.forEach(p => ctx.lineTo(p.x, p.y));
@@ -171,7 +194,7 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
       }
       ctx.setLineDash([]);
     }
-  }, [imgLoaded, selectedColor, tool]);
+  }, [imgLoaded, selectedColor, tool, shapeRotation, drawShape]);
 
   useEffect(() => {
     if (phase === "annotate") redraw(shapes);
@@ -211,6 +234,7 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
         color: selectedColor.color,
         label: label,
         points: finalPoints,
+        ...(tool === "rect" ? { rotation: shapeRotation } : {}),
       };
       setShapes(prev => [...prev, newShape]);
     }
@@ -233,22 +257,7 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
       canvas.height = img.naturalHeight;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      shapes.forEach((shape) => {
-        ctx.fillStyle = shape.color;
-        const borderColor = COLOR_PRESETS.find(c => c.color === shape.color)?.border || shape.color;
-        ctx.strokeStyle = borderColor;
-        ctx.lineWidth = 2;
-        if (shape.type === "rect" && shape.points.length === 2) {
-          const [a, b] = shape.points;
-          ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
-          ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
-          if (shape.label) { ctx.fillStyle = borderColor; ctx.font = "bold 13px sans-serif"; ctx.fillText(shape.label, a.x + 4, a.y + 16); }
-        } else if (shape.type === "freehand" && shape.points.length > 1) {
-          ctx.beginPath(); ctx.moveTo(shape.points[0].x, shape.points[0].y);
-          shape.points.forEach(p => ctx.lineTo(p.x, p.y)); ctx.closePath(); ctx.fill(); ctx.stroke();
-          if (shape.label) { ctx.fillStyle = borderColor; ctx.font = "bold 13px sans-serif"; ctx.fillText(shape.label, shape.points[0].x + 4, shape.points[0].y + 16); }
-        }
-      });
+      shapes.forEach(shape => drawShape(ctx, shape));
 
       const annotationImage = canvas.toDataURL("image/png");
 
@@ -286,7 +295,6 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
             mapContainerStyle={mapContainerStyle}
             center={center}
             zoom={18}
-            mapTypeId="satellite"
             onLoad={onMapLoad}
             options={{ disableDefaultUI: false, zoomControl: true, mapTypeControl: false, streetViewControl: false, fullscreenControl: false, mapTypeId: "satellite", tilt: 0 }}
           />
@@ -368,6 +376,26 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
         </div>
       </div>
 
+      {/* Box angle slider — only when Rectangle tool is active */}
+      {tool === "rect" && (
+        <div className="flex items-center gap-2 px-1">
+          <RotateCw className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <span className="text-xs text-muted-foreground whitespace-nowrap">Box angle:</span>
+          <Slider
+            value={[shapeRotation]}
+            onValueChange={([v]) => setShapeRotation(v)}
+            min={0}
+            max={360}
+            step={1}
+            className="flex-1 max-w-[200px]"
+          />
+          <span className="text-xs text-muted-foreground w-8 text-right">{shapeRotation}°</span>
+          <Button size="sm" variant="ghost" onClick={() => setShapeRotation(0)} className="h-7 text-xs px-2">
+            Reset
+          </Button>
+        </div>
+      )}
+
       {/* Color legend */}
       <div className="flex gap-3 text-xs text-muted-foreground">
         {COLOR_PRESETS.map((c) => (
@@ -406,7 +434,7 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
         />
       </div>
 
-      <p className="text-xs text-muted-foreground">Draw rectangles or freehand shapes to annotate the property. Click "Back to Map" to adjust the view.</p>
+      <p className="text-xs text-muted-foreground">Draw rectangles or freehand shapes. Use the "Box angle" slider to rotate rectangles to match building orientation.</p>
     </div>
   );
 }
