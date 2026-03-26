@@ -187,9 +187,45 @@ export default function Dashboard() {
     },
   ];
 
+  function exportToCSV() {
+    if (!clients) return;
+    const rows = [
+      ["Client Name", "Address", "Markets", "Buildings", "Services", "Status", "Contract End", "Created"],
+      ...clients.map((c) => {
+        const a = c.agreements.sort(
+          (x, y) => new Date(y.created_at).getTime() - new Date(x.created_at).getTime()
+        )[0];
+        return [
+          c.name,
+          c.address,
+          c.markets || "",
+          c.building_count ?? "",
+          (a?.service_types || []).map((st) => SERVICE_LABELS[st] || st).join(", "),
+          a?.status || "",
+          a?.contract_end_date ? format(parseISO(a.contract_end_date), "MMM d, yyyy") : "",
+          format(new Date(c.created_at), "MMM d, yyyy"),
+        ];
+      }),
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `SRC_Clients_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div>
-      <h1 className="text-2xl font-bold text-foreground mb-6">Dashboard</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+        <Button variant="outline" size="sm" onClick={exportToCSV} className="gap-2">
+          <Download className="h-4 w-4" />
+          Export CSV
+        </Button>
+      </div>
 
       {/* Section 1 — KPI Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
