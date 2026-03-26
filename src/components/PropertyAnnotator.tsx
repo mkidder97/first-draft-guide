@@ -296,7 +296,7 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
             center={center}
             zoom={18}
             onLoad={onMapLoad}
-            options={{ disableDefaultUI: false, zoomControl: true, mapTypeControl: false, streetViewControl: false, fullscreenControl: false, mapTypeId: "satellite", tilt: 0 }}
+            options={{ disableDefaultUI: false, zoomControl: true, mapTypeControl: false, streetViewControl: false, fullscreenControl: false, rotateControl: false, mapTypeId: "satellite", tilt: 0, heading: rotation }}
           />
         </div>
         <div className="flex flex-wrap items-center gap-3 mt-2">
