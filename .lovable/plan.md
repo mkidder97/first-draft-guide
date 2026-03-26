@@ -1,29 +1,40 @@
 
 
-## Form Cleanup + Auto-Detect Market
+## Contacts Schema, Page, Sidebar + Route
 
-Single file: `src/pages/NewClient.tsx`
+### Change 1 — Database Migration
+Create `contacts` table and add `contact_id` FK to `clients`:
+```sql
+CREATE TABLE IF NOT EXISTS contacts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  email text NOT NULL,
+  phone text,
+  company text,
+  title text,
+  notes text,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_id uuid REFERENCES contacts(id) ON DELETE SET NULL;
+ALTER TABLE contacts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Authenticated users can manage contacts" ON contacts
+  FOR ALL USING (auth.role() = 'authenticated');
+```
 
-### Change 1 — Remove Building Count and Duration fields
+### Change 2 — Create `src/pages/Contacts.tsx`
+New page querying `contacts` with a client count subquery. Features:
+- Table columns: Name, Email, Phone, Company, Title, Linked Properties, Created
+- Search input filtering by name/email/company
+- "New Contact" button toggles inline form at top (Name*, Email*, Phone, Company, Title)
+- Insert to `contacts` table on save, invalidate query
+- Empty state with "Add First Contact" CTA
+- Uses same UI patterns as existing pages (Card, Table, Input, Button, Badge, toast)
 
-**Interface & defaults (lines 22-40):**
-- Remove `buildingCount: string;` and `duration: string;` from `ClientFields`
-- Remove `buildingCount: ""` and `duration: ""` from `emptyFields`
+### Change 3 — AppSidebar.tsx
+- Add `Contact` to lucide-react import (line 1)
+- Insert nav item `{ title: "Contacts", url: "/contacts", icon: Contact }` between "New Client" and "Clients" in navItems array
 
-**handleParse (lines 79-87):** Remove `buildingCount` and `duration` lines from setFields
-
-**handleParseScreenshot (lines 118-126):** Remove same two lines from setFields
-
-**handleSubmit (lines 143-180):**
-- Line 149: Remove `building_count: fields.buildingCount ? parseInt(...)` from clients insert
-- Lines 157-168: Delete entire `parseContractEndDate` helper function
-- Lines 175, 178: Remove `duration` and `contract_end_date` from agreements insert
-
-**FieldsForm (lines 345-384):** Remove Building Count div (lines 345-354) and Duration div (lines 377-384)
-
-### Change 2 — Auto-detect market from address
-
-- **Line 1:** Change `import { useState }` to `import { useState, useEffect }`
-- **After line 51** (state declarations): Add useEffect that watches `fields.address`, extracts city via regex, and auto-fills `fields.markets` if empty
-- **Line 227:** Update Textarea placeholder to `"e.g. New client Acme Corp at 123 Main St Houston TX 77001. Annual PM services for their Dallas and Houston properties."`
+### Change 4 — App.tsx
+- Add `import Contacts from "./pages/Contacts";` (line 14)
+- Add `<Route path="/contacts" element={<Contacts />} />` after the `/new-client` route (line 36)
 
