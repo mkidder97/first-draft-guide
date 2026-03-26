@@ -83,6 +83,20 @@ export default function NewClient() {
     }
   }, [fields.address]);
 
+  // Auto-load satellite image from address
+  useEffect(() => {
+    setSatelliteError(false);
+    if (!fields.address || fields.address.length < 10) {
+      setSatelliteImageUrl(null);
+      return;
+    }
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    if (!apiKey) return;
+    const encoded = encodeURIComponent(fields.address);
+    const url = `https://maps.googleapis.com/maps/api/staticmap?center=${encoded}&zoom=18&size=600x300&maptype=satellite&key=${apiKey}`;
+    setSatelliteImageUrl(url);
+  }, [fields.address]);
+
   const updateField = (key: keyof ClientFields, value: string | string[] | null) => {
     setFields((prev) => ({ ...prev, [key]: value }));
   };
