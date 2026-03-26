@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,9 +14,22 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Search, UserPlus, X } from "lucide-react";
+import { Plus, Search, UserPlus, X, ChevronDown, Building2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { format } from "date-fns";
+
+interface LinkedClient {
+  id: string;
+  name: string;
+  address: string;
+  agreements: { id: string; status: string }[];
+}
 
 interface Contact {
   id: string;
@@ -27,7 +40,7 @@ interface Contact {
   title: string | null;
   notes: string | null;
   created_at: string;
-  client_count?: number;
+  linked_clients: LinkedClient[];
 }
 
 export default function Contacts() {
@@ -51,22 +64,28 @@ export default function Contacts() {
         .order("created_at", { ascending: false });
       if (error) throw error;
 
-      // Get linked client counts
+      // Get linked clients with their agreements
       const { data: clients } = await supabase
         .from("clients")
-        .select("contact_id");
+        .select("id, name, address, contact_id, agreements(id, status)");
 
-      const countMap: Record<string, number> = {};
-      clients?.forEach((c: { contact_id: string | null }) => {
+      const clientMap: Record<string, LinkedClient[]> = {};
+      clients?.forEach((c: any) => {
         if (c.contact_id) {
-          countMap[c.contact_id] = (countMap[c.contact_id] || 0) + 1;
+          if (!clientMap[c.contact_id]) clientMap[c.contact_id] = [];
+          clientMap[c.contact_id].push({
+            id: c.id,
+            name: c.name,
+            address: c.address,
+            agreements: c.agreements || [],
+          });
         }
       });
 
-      return (data as Contact[]).map((contact) => ({
+      return (data as any[]).map((contact) => ({
         ...contact,
-        client_count: countMap[contact.id] || 0,
-      }));
+        linked_clients: clientMap[contact.id] || [],
+      })) as Contact[];
     },
   });
 
@@ -212,7 +231,52 @@ export default function Contacts() {
                     <TableCell>{contact.company || "—"}</TableCell>
                     <TableCell>{contact.title || "—"}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{contact.client_count}</Badge>
+                      {contact.linked_clients.length === 0 ? (
+                        <span className="text-muted-foreground text-xs">None</span>
+                      ) : (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" size="sm" className="gap-1.5 h-7 px-2 text-xs">
+                              <Badge variant="secondary">{contact.linked_clients.length}</Badge>
+                              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-72 p-2" align="start">
+                            <p className="text-xs font-semibold text-muted-foreground px-2 py-1">Linked Properties</p>
+                            <div className="space-y-1">
+                              {contact.linked_clients.map((client) => {
+                                const agreement = client.agreements[0];
+                                return (
+                                  <div
+                                    key={client.id}
+                                    className="flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50"
+                                  >
+                                    <Building2 className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm font-medium truncate">{client.name}</p>
+                                      <p className="text-xs text-muted-foreground truncate">{client.address}</p>
+                                    </div>
+                                    {agreement ? (
+                                      <Link to={`/agreements/${agreement.id}`}>
+                                        <Badge
+                                          variant="outline"
+                                          className="text-[10px] shrink-0 cursor-pointer hover:bg-primary/10"
+                                        >
+                                          {agreement.status}
+                                        </Badge>
+                                      </Link>
+                                    ) : (
+                                      <Badge variant="outline" className="text-[10px] shrink-0">
+                                        no agreement
+                                      </Badge>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {format(new Date(contact.created_at), "MMM d, yyyy")}
