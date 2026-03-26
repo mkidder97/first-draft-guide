@@ -176,6 +176,32 @@ export default function AgreementDetail() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isMarking, setIsMarking] = useState(false);
   const [webhookError, setWebhookError] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [notesLoaded, setNotesLoaded] = useState(false);
+
+  useEffect(() => {
+    if (agreement?.clients && !notesLoaded) {
+      const clientData = agreement.clients as { name: string; address: string; notes?: string };
+      setNotes(clientData.notes || "");
+      setNotesLoaded(true);
+    }
+  }, [agreement, notesLoaded]);
+
+  async function handleSaveNotes() {
+    if (!agreement) return;
+    setIsSavingNotes(true);
+    const { error } = await supabase
+      .from("clients")
+      .update({ notes } as any)
+      .eq("id", (agreement as any).client_id);
+    if (error) {
+      toast({ title: "Error", description: "Failed to save notes.", variant: "destructive" });
+    } else {
+      toast({ title: "Notes saved" });
+    }
+    setIsSavingNotes(false);
+  }
 
   const { data: agreement, isLoading, error } = useQuery({
     queryKey: ["agreement", id],
