@@ -336,6 +336,9 @@ export default function NewClient() {
             contactSearch={contactSearch}
             setContactSearch={setContactSearch}
             contactResults={contactResults || []}
+            satelliteImageUrl={satelliteImageUrl}
+            onSatelliteError={() => setSatelliteError(true)}
+            satelliteError={satelliteError}
           />
           {submitError && (
             <p className="text-sm text-destructive">{submitError}</p>
