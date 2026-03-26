@@ -3,7 +3,8 @@ import { GoogleMap, useJsApiLoader } from "@react-google-maps/api";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Undo2, Trash2, Save, Square, PenLine, MapPin } from "lucide-react";
+import { Undo2, Trash2, Save, Square, PenLine, MapPin, RotateCw } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 
 interface Point { x: number; y: number; }
 
