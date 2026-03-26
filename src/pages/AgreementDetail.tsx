@@ -180,61 +180,6 @@ export default function AgreementDetail() {
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [notesLoaded, setNotesLoaded] = useState(false);
 
-  useEffect(() => {
-    if (agreement?.clients && !notesLoaded) {
-      const clientData = agreement.clients as { name: string; address: string; notes?: string };
-      setNotes(clientData.notes || "");
-      setNotesLoaded(true);
-    }
-  }, [agreement, notesLoaded]);
-
-  async function handleSaveNotes() {
-    if (!agreement) return;
-    setIsSavingNotes(true);
-    const { error } = await supabase
-      .from("clients")
-      .update({ notes } as any)
-      .eq("id", (agreement as any).client_id);
-    if (error) {
-      toast({ title: "Error", description: "Failed to save notes.", variant: "destructive" });
-    } else {
-      toast({ title: "Notes saved" });
-    }
-    setIsSavingNotes(false);
-  }
-
-  const { data: agreement, isLoading, error } = useQuery({
-    queryKey: ["agreement", id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("agreements")
-        .select("*, clients(*)")
-        .eq("id", id!)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!id,
-  });
-
-  const client = agreement?.clients as { name: string; address: string } | null;
-  const canSign = agreement?.status === "draft" || agreement?.status === "sent";
-
-  // ─── Reopen handler ─────────────────────────────────────────
-  async function handleReopen() {
-    if (!agreement) return;
-    const { error } = await supabase
-      .from("agreements")
-      .update({ status: "draft", signed_at: null })
-      .eq("id", agreement.id);
-    if (error) {
-      toast({ title: "Error", description: "Failed to reopen agreement.", variant: "destructive" });
-      return;
-    }
-    await queryClient.invalidateQueries({ queryKey: ["agreement", id] });
-    toast({ title: "Agreement reopened", description: "Status reset to Draft." });
-  }
-
 
   // ─── Webhook payload builder ─────────────────────────────────
   function buildWebhookPayload() {
