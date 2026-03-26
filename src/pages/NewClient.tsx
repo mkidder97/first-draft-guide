@@ -31,9 +31,7 @@ const emptyFields: ClientFields = {
   clientName: "",
   address: "",
   serviceTypes: [],
-  buildingCount: "",
   markets: "",
-  duration: "",
   scopeNotes: "",
 };
 
