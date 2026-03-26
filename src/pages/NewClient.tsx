@@ -138,7 +138,6 @@ export default function NewClient() {
         .insert({
           name: fields.clientName,
           address: fields.address,
-          building_count: fields.buildingCount ? parseInt(fields.buildingCount, 10) : null,
           markets: fields.markets || null,
         })
         .select("id")
