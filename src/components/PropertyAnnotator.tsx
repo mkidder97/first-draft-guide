@@ -288,7 +288,7 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
             zoom={18}
             mapTypeId="satellite"
             onLoad={onMapLoad}
-            options={{ disableDefaultUI: false, zoomControl: true, mapTypeControl: false, streetViewControl: false, fullscreenControl: false }}
+            options={{ disableDefaultUI: false, zoomControl: true, mapTypeControl: false, streetViewControl: false, fullscreenControl: false, mapTypeId: "satellite", tilt: 0 }}
           />
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
             <Button onClick={handleStartAnnotating} className="gap-2 shadow-lg">
