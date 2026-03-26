@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { PropertyAnnotator } from "@/components/PropertyAnnotator";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -179,6 +180,7 @@ export default function AgreementDetail() {
   const [notes, setNotes] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [notesLoaded, setNotesLoaded] = useState(false);
+  const [satelliteUrl, setSatelliteUrl] = useState<string | null>(null);
 
   const { data: agreement, isLoading, error } = useQuery({
     queryKey: ["agreement", id],
@@ -211,6 +213,21 @@ export default function AgreementDetail() {
       toast({ title: "Agreement reopened", description: "Status set back to Draft." });
     }
   }
+
+  useEffect(() => {
+    const clientData = agreement?.clients as { name: string; address: string } | null;
+    if (clientData?.address) {
+      if ((agreement as any).satellite_image_url) {
+        setSatelliteUrl((agreement as any).satellite_image_url);
+      } else {
+        const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+        if (apiKey) {
+          const encoded = encodeURIComponent(clientData.address);
+          setSatelliteUrl(`https://maps.googleapis.com/maps/api/staticmap?center=${encoded}&zoom=18&size=600x300&maptype=satellite&key=${apiKey}`);
+        }
+      }
+    }
+  }, [agreement]);
 
   useEffect(() => {
     if (agreement?.clients && !notesLoaded) {
@@ -329,8 +346,6 @@ export default function AgreementDetail() {
     const clientName = client?.name?.replace(/[^a-zA-Z0-9]/g, "_") || "agreement";
     ctx.doc.save(`SRC_Agreement_${clientName}.pdf`);
   }
-
-
 
 
   if (isLoading) {
@@ -596,6 +611,25 @@ export default function AgreementDetail() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Property Map */}
+      {satelliteUrl && (
+        <Card className="mt-4">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              🗺 Property Map
+              <span className="text-xs font-normal text-muted-foreground">(annotate buildings in scope)</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PropertyAnnotator
+              agreementId={agreement.id}
+              satelliteImageUrl={satelliteUrl}
+              existingAnnotations={(agreement as any).annotation_data || []}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Internal Notes */}
       <Card className="mt-4">
