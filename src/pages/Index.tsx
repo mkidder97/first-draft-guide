@@ -467,6 +467,16 @@ export default function Dashboard() {
                             </AlertDialog>
                           )}
                         </TableCell>
+                        <TableCell className="text-right">
+                          {a && (
+                            <Link to={`/agreements/${a.id}`}>
+                              <Button variant="ghost" size="sm" className="gap-1.5 text-xs">
+                                <Eye className="h-3.5 w-3.5" />
+                                View
+                              </Button>
+                            </Link>
+                          )}
+                        </TableCell>
                       </TableRow>
                     );
                   })
