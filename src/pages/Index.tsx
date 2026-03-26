@@ -363,6 +363,7 @@ export default function Dashboard() {
                   <TableHead>Contract End</TableHead>
                   <TableHead>Update Status</TableHead>
                   <TableHead>Delete</TableHead>
+                  <TableHead className="text-right">View</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
