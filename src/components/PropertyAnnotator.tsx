@@ -40,7 +40,8 @@ function drawRotatedRect(
   a: Point, b: Point,
   rotation: number,
   fillColor: string, borderColor: string,
-  label?: string
+  label?: string,
+  selected?: boolean
 ) {
   const cx = (a.x + b.x) / 2;
   const cy = (a.y + b.y) / 2;
@@ -58,6 +59,14 @@ function drawRotatedRect(
   ctx.lineWidth = 2;
   ctx.strokeRect(-w / 2, -h / 2, w, h);
 
+  if (selected) {
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.lineWidth = 3;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(-w / 2 - 3, -h / 2 - 3, w + 6, h + 6);
+    ctx.setLineDash([]);
+  }
+
   if (label) {
     ctx.fillStyle = borderColor;
     ctx.font = "bold 13px sans-serif";
@@ -65,6 +74,20 @@ function drawRotatedRect(
   }
 
   ctx.restore();
+}
+
+function hitTestRect(point: Point, a: Point, b: Point, rotation: number): boolean {
+  const cx = (a.x + b.x) / 2;
+  const cy = (a.y + b.y) / 2;
+  const rad = -(rotation * Math.PI) / 180;
+  // Transform point into rect's local space
+  const dx = point.x - cx;
+  const dy = point.y - cy;
+  const localX = dx * Math.cos(rad) - dy * Math.sin(rad);
+  const localY = dx * Math.sin(rad) + dy * Math.cos(rad);
+  const hw = Math.abs(b.x - a.x) / 2;
+  const hh = Math.abs(b.y - a.y) / 2;
+  return Math.abs(localX) <= hw && Math.abs(localY) <= hh;
 }
 
 export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, existingAnnotations, onSaved }: Props) {
@@ -90,6 +113,7 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
   const [imgLoaded, setImgLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [shapeRotation, setShapeRotation] = useState(0);
+  const [selectedShapeIndex, setSelectedShapeIndex] = useState<number | null>(null);
 
   // Geocode address
   useEffect(() => {
@@ -118,6 +142,34 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
     }
   }, [rotation, phase]);
 
+  // Escape to deselect
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && selectedShapeIndex !== null) {
+        setSelectedShapeIndex(null);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedShapeIndex]);
+
+  // When selecting a shape, sync slider to its rotation
+  useEffect(() => {
+    if (selectedShapeIndex !== null && shapes[selectedShapeIndex]?.type === "rect") {
+      setShapeRotation(shapes[selectedShapeIndex].rotation || 0);
+    }
+  }, [selectedShapeIndex]);
+
+  // When slider changes and a shape is selected, update that shape's rotation
+  const handleShapeRotationChange = (value: number) => {
+    setShapeRotation(value);
+    if (selectedShapeIndex !== null && shapes[selectedShapeIndex]?.type === "rect") {
+      setShapes(prev => prev.map((s, i) =>
+        i === selectedShapeIndex ? { ...s, rotation: value } : s
+      ));
+    }
+  };
+
   const handleStartAnnotating = () => {
     const map = mapRef.current;
     if (!map) return;
@@ -135,6 +187,7 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
   const handleBackToMap = () => {
     setPhase("navigate");
     setImgLoaded(false);
+    setSelectedShapeIndex(null);
   };
 
   const getCanvasPoint = (e: React.MouseEvent): Point => {
@@ -146,10 +199,10 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
     };
   };
 
-  const drawShape = useCallback((ctx: CanvasRenderingContext2D, shape: Shape) => {
+  const drawShape = useCallback((ctx: CanvasRenderingContext2D, shape: Shape, isSelected?: boolean) => {
     const borderColor = COLOR_PRESETS.find(c => c.color === shape.color)?.border || shape.color;
     if (shape.type === "rect" && shape.points.length === 2) {
-      drawRotatedRect(ctx, shape.points[0], shape.points[1], shape.rotation || 0, shape.color, borderColor, shape.label);
+      drawRotatedRect(ctx, shape.points[0], shape.points[1], shape.rotation || 0, shape.color, borderColor, shape.label, isSelected);
     } else if (shape.type === "freehand" && shape.points.length > 1) {
       ctx.fillStyle = shape.color;
       ctx.strokeStyle = borderColor;
@@ -176,7 +229,7 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight);
 
-    shapesToDraw.forEach(shape => drawShape(ctx, shape));
+    shapesToDraw.forEach((shape, i) => drawShape(ctx, shape, i === selectedShapeIndex));
 
     // Draw preview
     if (previewPoints && previewPoints.length > 0) {
@@ -194,7 +247,7 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
       }
       ctx.setLineDash([]);
     }
-  }, [imgLoaded, selectedColor, tool, shapeRotation, drawShape]);
+  }, [imgLoaded, selectedColor, tool, shapeRotation, drawShape, selectedShapeIndex]);
 
   useEffect(() => {
     if (phase === "annotate") redraw(shapes);
@@ -202,6 +255,20 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
 
   const handleMouseDown = (e: React.MouseEvent) => {
     const pt = getCanvasPoint(e);
+
+    // Hit-test existing rect shapes (reverse order = topmost first)
+    for (let i = shapes.length - 1; i >= 0; i--) {
+      const s = shapes[i];
+      if (s.type === "rect" && s.points.length === 2) {
+        if (hitTestRect(pt, s.points[0], s.points[1], s.rotation || 0)) {
+          setSelectedShapeIndex(i);
+          return; // select, don't draw
+        }
+      }
+    }
+
+    // Clicked empty area — deselect and start drawing
+    setSelectedShapeIndex(null);
     setIsDrawing(true);
     setCurrentPoints([pt]);
   };
@@ -241,8 +308,14 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
     setCurrentPoints([]);
   };
 
-  const handleUndo = () => setShapes(prev => prev.slice(0, -1));
-  const handleClear = () => setShapes([]);
+  const handleUndo = () => {
+    setShapes(prev => prev.slice(0, -1));
+    setSelectedShapeIndex(null);
+  };
+  const handleClear = () => {
+    setShapes([]);
+    setSelectedShapeIndex(null);
+  };
 
   const handleSave = async () => {
     const canvas = canvasRef.current;
@@ -300,27 +373,12 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
           />
         </div>
         <div className="flex flex-wrap items-center gap-3 mt-2">
-          <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-            <RotateCw className="h-4 w-4 text-muted-foreground shrink-0" />
-            <Slider
-              value={[rotation]}
-              onValueChange={([v]) => setRotation(v)}
-              min={0}
-              max={360}
-              step={1}
-              className="flex-1"
-            />
-            <span className="text-xs text-muted-foreground w-8 text-right">{rotation}°</span>
-            <Button size="sm" variant="ghost" onClick={() => setRotation(0)} className="h-7 text-xs px-2">
-              Reset
-            </Button>
-          </div>
           <Button onClick={handleStartAnnotating} className="gap-2 shadow-lg">
             <MapPin className="h-4 w-4" />
             Start Annotating
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">Pan, zoom, and rotate the map to find the right view, then click "Start Annotating" to begin drawing.</p>
+        <p className="text-xs text-muted-foreground">Pan and zoom the map to find the right view, then click "Start Annotating" to begin drawing.</p>
       </div>
     );
   }
@@ -380,19 +438,26 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
       {tool === "rect" && (
         <div className="flex items-center gap-2 px-1">
           <RotateCw className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <span className="text-xs text-muted-foreground whitespace-nowrap">Box angle:</span>
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {selectedShapeIndex !== null ? "Selected shape angle:" : "Box angle:"}
+          </span>
           <Slider
             value={[shapeRotation]}
-            onValueChange={([v]) => setShapeRotation(v)}
+            onValueChange={([v]) => handleShapeRotationChange(v)}
             min={0}
             max={360}
             step={1}
             className="flex-1 max-w-[200px]"
           />
           <span className="text-xs text-muted-foreground w-8 text-right">{shapeRotation}°</span>
-          <Button size="sm" variant="ghost" onClick={() => setShapeRotation(0)} className="h-7 text-xs px-2">
+          <Button size="sm" variant="ghost" onClick={() => handleShapeRotationChange(0)} className="h-7 text-xs px-2">
             Reset
           </Button>
+          {selectedShapeIndex !== null && (
+            <Button size="sm" variant="ghost" onClick={() => setSelectedShapeIndex(null)} className="h-7 text-xs px-2 text-muted-foreground">
+              Deselect
+            </Button>
+          )}
         </div>
       )}
 
@@ -434,7 +499,9 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
         />
       </div>
 
-      <p className="text-xs text-muted-foreground">Draw rectangles or freehand shapes. Use the "Box angle" slider to rotate rectangles to match building orientation.</p>
+      <p className="text-xs text-muted-foreground">
+        Draw shapes on the map. Click an existing rectangle to select it and adjust its angle with the slider. Press Escape to deselect.
+      </p>
     </div>
   );
 }
