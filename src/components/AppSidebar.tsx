@@ -1,4 +1,4 @@
-import { Home, PlusCircle, Users, LogOut } from "lucide-react";
+import { Home, PlusCircle, Contact, Users, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import srcLogo from "@/assets/src-logo.png";
@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 const navItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "New Client", url: "/new-client", icon: PlusCircle },
+  { title: "Contacts", url: "/contacts", icon: Contact },
   { title: "Clients", url: "/agreements", icon: Users },
 ];
 

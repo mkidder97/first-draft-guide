@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import NewClient from "./pages/NewClient";
 import Agreements from "./pages/Agreements";
 import AgreementDetail from "./pages/AgreementDetail";
+import Contacts from "./pages/Contacts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
             >
               <Route path="/" element={<Index />} />
               <Route path="/new-client" element={<NewClient />} />
+              <Route path="/contacts" element={<Contacts />} />
               <Route path="/agreements" element={<Agreements />} />
               <Route path="/agreements/:id" element={<AgreementDetail />} />
             </Route>
