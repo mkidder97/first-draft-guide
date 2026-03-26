@@ -1,32 +1,38 @@
 
 
-## Property Annotator: Schema + Component + Agreement Detail Integration
+## Add Pan & Zoom to PropertyAnnotator
 
-### Change 1 — Database Migration
-```sql
-ALTER TABLE agreements ADD COLUMN IF NOT EXISTS satellite_image_url text;
-ALTER TABLE agreements ADD COLUMN IF NOT EXISTS annotation_data jsonb;
-ALTER TABLE agreements ADD COLUMN IF NOT EXISTS annotation_image text;
-```
+Single file: `src/components/PropertyAnnotator.tsx`
 
-### Change 2 — Create `src/components/PropertyAnnotator.tsx`
-New self-contained canvas annotation component with:
-- Rectangle and freehand drawing tools
-- 4 color presets (In Scope, Out of Scope, Note, Complete) with legend
-- Optional text labels on shapes
-- Undo / Clear / Save toolbar
-- Saves `annotation_data` (JSON shapes), `annotation_image` (base64 PNG), and `satellite_image_url` to the agreements table
-- Hidden `<img>` loads the satellite URL, canvas mirrors its dimensions
-- Uses `as any` casts for the new columns not yet in generated types
+### Approach
+Instead of modifying the Google Maps Static API URL (which would require re-fetching the image), implement canvas-level pan and zoom using a 2D transform (offset + scale). Add a "Move" tool mode so the user can switch between drawing and panning.
 
-### Change 3 — Wire into `src/pages/AgreementDetail.tsx`
-- **Import**: Add `PropertyAnnotator` import
-- **State**: Add `satelliteUrl` state variable
-- **useEffect**: When agreement loads, check for existing `satellite_image_url` on the agreement; if missing, build one from client address + Google Maps API key constant
-- **Render**: Insert a new "Property Map" Card between the main agreement Card (line 598) and the Internal Notes Card (line 600), containing `<PropertyAnnotator>` with `agreementId`, `satelliteImageUrl`, and `existingAnnotations` props
+### Changes
 
-### Technical Notes
-- New columns use `as any` casts since `types.ts` is auto-generated and won't have them immediately
-- The Google Maps API key is already hardcoded in `NewClient.tsx`; same approach used here via `import.meta.env.VITE_GOOGLE_MAPS_API_KEY` with fallback
-- No changes to PDF generation, webhook, or any other existing logic
+**New imports**: Add `Move, ZoomIn, ZoomOut` from lucide-react.
+
+**New state** (after existing state declarations):
+- `scale` (number, default 1) — zoom level
+- `offset` ({x, y}, default {x:0, y:0}) — pan offset
+- `mode` — expand tool to include `"pan"` alongside `"rect"` and `"freehand"`
+
+**Updated `getCanvasPoint`**: Transform mouse coordinates by subtracting offset and dividing by scale, so shapes are stored in image-space coordinates regardless of pan/zoom.
+
+**Updated `redraw`**: Apply `ctx.translate(offset.x, offset.y)` and `ctx.scale(scale, scale)` before drawing the image and shapes. Reset transform after.
+
+**Mouse handlers**: When `mode === "pan"`, mouse drag updates `offset` instead of creating shapes. Drawing modes work as before but coordinates are transformed.
+
+**Zoom**: 
+- Mouse wheel on canvas adjusts `scale` (clamped 0.5–4x), zooming toward cursor position by adjusting offset accordingly.
+- Zoom in/out buttons in toolbar for quick +/- 0.25 steps.
+- Display current zoom % as text.
+
+**Toolbar additions** (in the tool button group):
+- "Move" button with `Move` icon (active when mode is "pan")
+- Zoom In / Zoom Out buttons with current zoom level display
+- "Reset View" — resets scale to 1 and offset to {0,0}
+
+**Save behavior**: Before saving, temporarily reset transform to identity, redraw at full resolution, export `toDataURL`, then restore the user's view. This ensures the saved image captures the full map regardless of current pan/zoom.
+
+**Help text update**: Change bottom text to mention "Use Move tool to pan, scroll wheel to zoom."
 
