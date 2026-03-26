@@ -113,9 +113,7 @@ export default function NewClient() {
         clientName: data.clientName || "",
         address: data.address || "",
         serviceTypes: Array.isArray(data.serviceTypes) ? data.serviceTypes : [],
-        buildingCount: data.buildingCount != null ? String(data.buildingCount) : "",
         markets: data.markets || "",
-        duration: data.duration || "",
         scopeNotes: data.scopeNotes || "",
       });
     } catch (err: any) {
