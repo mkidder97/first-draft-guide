@@ -362,8 +362,9 @@ export default function Dashboard() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Client Name</TableHead>
-                  <TableHead>Address</TableHead>
+                   <TableHead>Client Name</TableHead>
+                   <TableHead>Contact</TableHead>
+                   <TableHead>Address</TableHead>
                   <TableHead>Markets</TableHead>
                   <TableHead>Buildings</TableHead>
                   <TableHead>Services</TableHead>
