@@ -614,7 +614,7 @@ export default function AgreementDetail() {
       </Card>
 
       {/* Property Map */}
-      {satelliteUrl && (
+      {client?.address && (
         <Card className="mt-4">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -625,7 +625,8 @@ export default function AgreementDetail() {
           <CardContent>
             <PropertyAnnotator
               agreementId={agreement.id}
-              satelliteImageUrl={satelliteUrl}
+              address={client.address}
+              existingSatelliteUrl={(agreement as any).satellite_image_url}
               existingAnnotations={(agreement as any).annotation_data || []}
             />
           </CardContent>

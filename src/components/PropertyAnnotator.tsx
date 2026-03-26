@@ -1,8 +1,9 @@
 import { useRef, useState, useEffect, useCallback } from "react";
+import { GoogleMap, useJsApiLoader } from "@react-google-maps/api";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Undo2, Trash2, Save, Square, PenLine, Move, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { Undo2, Trash2, Save, Square, PenLine, MapPin } from "lucide-react";
 
 interface Point { x: number; y: number; }
 
@@ -15,7 +16,8 @@ interface Shape {
 
 interface Props {
   agreementId: string;
-  satelliteImageUrl: string;
+  address: string;
+  existingSatelliteUrl?: string | null;
   existingAnnotations?: Shape[];
   onSaved?: (annotationImage: string) => void;
 }
@@ -27,11 +29,26 @@ const COLOR_PRESETS = [
   { label: "Complete", color: "rgba(60, 200, 80, 0.45)", border: "rgba(0, 150, 40, 0.9)" },
 ];
 
-export function PropertyAnnotator({ agreementId, satelliteImageUrl, existingAnnotations, onSaved }: Props) {
+const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyA5l3MGWK6jkedxdktSgH_AdmW4FnNFYm0";
+
+const mapContainerStyle = { width: "100%", height: "400px" };
+
+export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, existingAnnotations, onSaved }: Props) {
+  const { isLoaded } = useJsApiLoader({ id: "google-map-script", googleMapsApiKey: API_KEY });
+
+  const mapRef = useRef<google.maps.Map | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
+
+  // Phase: "navigate" = interactive map, "annotate" = frozen canvas
+  const hasExisting = !!(existingAnnotations && existingAnnotations.length > 0 && existingSatelliteUrl);
+  const [phase, setPhase] = useState<"navigate" | "annotate">(hasExisting ? "annotate" : "navigate");
+  const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [staticUrl, setStaticUrl] = useState<string | null>(existingSatelliteUrl || null);
+
+  // Drawing state
   const [shapes, setShapes] = useState<Shape[]>(existingAnnotations || []);
-  const [tool, setTool] = useState<"rect" | "freehand" | "pan">("pan");
+  const [tool, setTool] = useState<"rect" | "freehand">("rect");
   const [selectedColor, setSelectedColor] = useState(COLOR_PRESETS[0]);
   const [label, setLabel] = useState("");
   const [isDrawing, setIsDrawing] = useState(false);
@@ -39,27 +56,46 @@ export function PropertyAnnotator({ agreementId, satelliteImageUrl, existingAnno
   const [imgLoaded, setImgLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Pan & zoom state
-  const [scale, setScale] = useState(1);
-  const [offset, setOffset] = useState<Point>({ x: 0, y: 0 });
-  const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState<Point>({ x: 0, y: 0 });
-  const [panOffsetStart, setPanOffsetStart] = useState<Point>({ x: 0, y: 0 });
+  // Geocode address to get initial center
+  useEffect(() => {
+    if (!isLoaded || !address || center) return;
+    const geocoder = new window.google.maps.Geocoder();
+    geocoder.geocode({ address }, (results, status) => {
+      if (status === "OK" && results && results[0]) {
+        const loc = results[0].geometry.location;
+        setCenter({ lat: loc.lat(), lng: loc.lng() });
+      } else {
+        // Fallback: try to parse coords or use a default
+        setCenter({ lat: 29.7604, lng: -95.3698 }); // Houston default
+      }
+    });
+  }, [isLoaded, address, center]);
 
-  // Convert screen coords to image-space coords
-  const getCanvasPoint = (e: React.MouseEvent): Point => {
-    const canvas = canvasRef.current!;
-    const rect = canvas.getBoundingClientRect();
-    const screenX = (e.clientX - rect.left) * (canvas.width / rect.width);
-    const screenY = (e.clientY - rect.top) * (canvas.height / rect.height);
-    return {
-      x: (screenX - offset.x) / scale,
-      y: (screenY - offset.y) / scale,
-    };
+  const onMapLoad = useCallback((map: google.maps.Map) => {
+    mapRef.current = map;
+  }, []);
+
+  const handleStartAnnotating = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    const c = map.getCenter();
+    const z = map.getZoom();
+    if (!c || z === undefined) return;
+    const lat = c.lat();
+    const lng = c.lng();
+    const url = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${z}&size=640x640&maptype=satellite&scale=2&key=${API_KEY}`;
+    setStaticUrl(url);
+    setImgLoaded(false);
+    setPhase("annotate");
   };
 
-  // Get raw screen-space coords (for panning)
-  const getScreenPoint = (e: React.MouseEvent): Point => {
+  const handleBackToMap = () => {
+    setPhase("navigate");
+    setImgLoaded(false);
+  };
+
+  // Canvas drawing logic
+  const getCanvasPoint = (e: React.MouseEvent): Point => {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
     return {
@@ -74,25 +110,20 @@ export function PropertyAnnotator({ agreementId, satelliteImageUrl, existingAnno
     if (!canvas || !img || !imgLoaded) return;
     const ctx = canvas.getContext("2d")!;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    ctx.save();
-    ctx.translate(offset.x, offset.y);
-    ctx.scale(scale, scale);
-
     ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight);
 
     shapesToDraw.forEach((shape) => {
       ctx.fillStyle = shape.color;
       const borderColor = COLOR_PRESETS.find(c => c.color === shape.color)?.border || shape.color;
       ctx.strokeStyle = borderColor;
-      ctx.lineWidth = 2 / scale;
+      ctx.lineWidth = 2;
       if (shape.type === "rect" && shape.points.length === 2) {
         const [a, b] = shape.points;
         ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
         ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
         if (shape.label) {
           ctx.fillStyle = borderColor;
-          ctx.font = `bold ${13 / scale}px sans-serif`;
+          ctx.font = "bold 13px sans-serif";
           ctx.fillText(shape.label, a.x + 4, a.y + 16);
         }
       } else if (shape.type === "freehand" && shape.points.length > 1) {
@@ -104,7 +135,7 @@ export function PropertyAnnotator({ agreementId, satelliteImageUrl, existingAnno
         ctx.stroke();
         if (shape.label) {
           ctx.fillStyle = borderColor;
-          ctx.font = `bold ${13 / scale}px sans-serif`;
+          ctx.font = "bold 13px sans-serif";
           ctx.fillText(shape.label, shape.points[0].x + 4, shape.points[0].y + 16);
         }
       }
@@ -114,8 +145,8 @@ export function PropertyAnnotator({ agreementId, satelliteImageUrl, existingAnno
     if (previewPoints && previewPoints.length > 0) {
       ctx.fillStyle = selectedColor.color;
       ctx.strokeStyle = selectedColor.border;
-      ctx.lineWidth = 2 / scale;
-      ctx.setLineDash([4 / scale, 4 / scale]);
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
       if (tool === "rect" && previewPoints.length === 2) {
         const [a, b] = previewPoints;
         ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
@@ -128,35 +159,19 @@ export function PropertyAnnotator({ agreementId, satelliteImageUrl, existingAnno
       }
       ctx.setLineDash([]);
     }
-
-    ctx.restore();
-  }, [imgLoaded, selectedColor, tool, scale, offset]);
+  }, [imgLoaded, selectedColor, tool]);
 
   useEffect(() => {
-    redraw(shapes);
-  }, [shapes, imgLoaded, redraw]);
+    if (phase === "annotate") redraw(shapes);
+  }, [shapes, imgLoaded, redraw, phase]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (tool === "pan") {
-      setIsPanning(true);
-      setPanStart(getScreenPoint(e));
-      setPanOffsetStart({ ...offset });
-      return;
-    }
     const pt = getCanvasPoint(e);
     setIsDrawing(true);
     setCurrentPoints([pt]);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (tool === "pan" && isPanning) {
-      const current = getScreenPoint(e);
-      setOffset({
-        x: panOffsetStart.x + (current.x - panStart.x),
-        y: panOffsetStart.y + (current.y - panStart.y),
-      });
-      return;
-    }
     if (!isDrawing) return;
     const pt = getCanvasPoint(e);
     if (tool === "rect") {
@@ -169,10 +184,6 @@ export function PropertyAnnotator({ agreementId, satelliteImageUrl, existingAnno
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
-    if (tool === "pan") {
-      setIsPanning(false);
-      return;
-    }
     if (!isDrawing) return;
     setIsDrawing(false);
     const pt = getCanvasPoint(e);
@@ -194,57 +205,6 @@ export function PropertyAnnotator({ agreementId, satelliteImageUrl, existingAnno
     setCurrentPoints([]);
   };
 
-  const handleWheel = useCallback((e: WheelEvent) => {
-    e.preventDefault();
-    const canvas = canvasRef.current!;
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
-    const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
-
-    const delta = e.deltaY > 0 ? -0.15 : 0.15;
-    const newScale = Math.min(4, Math.max(0.5, scale + delta));
-    const ratio = newScale / scale;
-
-    setOffset(prev => ({
-      x: mouseX - ratio * (mouseX - prev.x),
-      y: mouseY - ratio * (mouseY - prev.y),
-    }));
-    setScale(newScale);
-  }, [scale]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    canvas.addEventListener("wheel", handleWheel, { passive: false });
-    return () => canvas.removeEventListener("wheel", handleWheel);
-  }, [handleWheel]);
-
-  const zoomIn = () => {
-    const newScale = Math.min(4, scale + 0.25);
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const cx = canvas.width / 2;
-      const cy = canvas.height / 2;
-      const ratio = newScale / scale;
-      setOffset(prev => ({ x: cx - ratio * (cx - prev.x), y: cy - ratio * (cy - prev.y) }));
-    }
-    setScale(newScale);
-  };
-
-  const zoomOut = () => {
-    const newScale = Math.max(0.5, scale - 0.25);
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const cx = canvas.width / 2;
-      const cy = canvas.height / 2;
-      const ratio = newScale / scale;
-      setOffset(prev => ({ x: cx - ratio * (cx - prev.x), y: cy - ratio * (cy - prev.y) }));
-    }
-    setScale(newScale);
-  };
-
-  const resetView = () => { setScale(1); setOffset({ x: 0, y: 0 }); };
-
   const handleUndo = () => setShapes(prev => prev.slice(0, -1));
   const handleClear = () => setShapes([]);
 
@@ -254,7 +214,6 @@ export function PropertyAnnotator({ agreementId, satelliteImageUrl, existingAnno
     if (!canvas || !img) return;
     setIsSaving(true);
     try {
-      // Render at full resolution without pan/zoom for export
       const ctx = canvas.getContext("2d")!;
       const origW = canvas.width;
       const origH = canvas.height;
@@ -281,7 +240,6 @@ export function PropertyAnnotator({ agreementId, satelliteImageUrl, existingAnno
 
       const annotationImage = canvas.toDataURL("image/png");
 
-      // Restore canvas size and redraw with current view
       canvas.width = origW;
       canvas.height = origH;
       redraw(shapes);
@@ -291,7 +249,7 @@ export function PropertyAnnotator({ agreementId, satelliteImageUrl, existingAnno
         .update({
           annotation_data: shapes as any,
           annotation_image: annotationImage,
-          satellite_image_url: satelliteImageUrl,
+          satellite_image_url: staticUrl,
         })
         .eq("id", agreementId);
       if (error) throw error;
@@ -304,29 +262,50 @@ export function PropertyAnnotator({ agreementId, satelliteImageUrl, existingAnno
     }
   };
 
-  const cursorClass = tool === "pan" ? (isPanning ? "cursor-grabbing" : "cursor-grab") : "cursor-crosshair";
+  // Navigate phase
+  if (phase === "navigate") {
+    if (!isLoaded || !center) {
+      return <div className="flex items-center justify-center h-64 text-sm text-muted-foreground">Loading map…</div>;
+    }
+    return (
+      <div className="space-y-3">
+        <div className="relative border rounded-md overflow-hidden">
+          <GoogleMap
+            mapContainerStyle={mapContainerStyle}
+            center={center}
+            zoom={18}
+            mapTypeId="satellite"
+            onLoad={onMapLoad}
+            options={{ disableDefaultUI: false, zoomControl: true, mapTypeControl: false, streetViewControl: false, fullscreenControl: false }}
+          />
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+            <Button onClick={handleStartAnnotating} className="gap-2 shadow-lg">
+              <MapPin className="h-4 w-4" />
+              Start Annotating
+            </Button>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">Pan and zoom the map to find the right view, then click "Start Annotating" to begin drawing.</p>
+      </div>
+    );
+  }
 
+  // Annotate phase
   return (
     <div className="space-y-3">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex gap-1">
-          <Button size="sm" variant={tool === "pan" ? "default" : "outline"} onClick={() => setTool("pan")} className="gap-1.5 h-8 text-xs">
-            <Move className="h-3.5 w-3.5" /> Move
-          </Button>
+        <Button size="sm" variant="outline" onClick={handleBackToMap} className="gap-1.5 h-8 text-xs">
+          <MapPin className="h-3.5 w-3.5" /> Back to Map
+        </Button>
+
+        <div className="flex gap-1 border-l pl-2 ml-1">
           <Button size="sm" variant={tool === "rect" ? "default" : "outline"} onClick={() => setTool("rect")} className="gap-1.5 h-8 text-xs">
             <Square className="h-3.5 w-3.5" /> Rectangle
           </Button>
           <Button size="sm" variant={tool === "freehand" ? "default" : "outline"} onClick={() => setTool("freehand")} className="gap-1.5 h-8 text-xs">
             <PenLine className="h-3.5 w-3.5" /> Freehand
           </Button>
-        </div>
-
-        <div className="flex items-center gap-1 border-l pl-2 ml-1">
-          <Button size="sm" variant="ghost" onClick={zoomOut} className="h-8 w-8 p-0"><ZoomOut className="h-4 w-4" /></Button>
-          <span className="text-xs text-muted-foreground w-10 text-center">{Math.round(scale * 100)}%</span>
-          <Button size="sm" variant="ghost" onClick={zoomIn} className="h-8 w-8 p-0"><ZoomIn className="h-4 w-4" /></Button>
-          <Button size="sm" variant="ghost" onClick={resetView} className="h-8 w-8 p-0" title="Reset view"><RotateCcw className="h-3.5 w-3.5" /></Button>
         </div>
 
         <div className="flex gap-1">
@@ -376,7 +355,7 @@ export function PropertyAnnotator({ agreementId, satelliteImageUrl, existingAnno
       <div className="relative border rounded-md overflow-hidden">
         <img
           ref={imgRef}
-          src={satelliteImageUrl}
+          src={staticUrl || ""}
           alt="Satellite view"
           className="hidden"
           onLoad={() => {
@@ -392,18 +371,15 @@ export function PropertyAnnotator({ agreementId, satelliteImageUrl, existingAnno
         />
         <canvas
           ref={canvasRef}
-          className={`w-full ${cursorClass}`}
+          className="w-full cursor-crosshair"
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onMouseLeave={() => {
-            if (isPanning) setIsPanning(false);
-            if (isDrawing) handleMouseUp({} as any);
-          }}
+          onMouseLeave={() => { if (isDrawing) handleMouseUp({} as any); }}
         />
       </div>
 
-      <p className="text-xs text-muted-foreground">Use Move tool to pan, scroll wheel to zoom. Switch to Rectangle or Freehand to draw shapes.</p>
+      <p className="text-xs text-muted-foreground">Draw rectangles or freehand shapes to annotate the property. Click "Back to Map" to adjust the view.</p>
     </div>
   );
 }
