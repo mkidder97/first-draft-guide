@@ -1,34 +1,39 @@
 
 
-## Fix Rotation to Work During Annotation
+## Combined Plan: Rotatable Rectangles + PDF Annotation Image Placement
 
-Single file: `src/components/PropertyAnnotator.tsx`
+Two files: `src/components/PropertyAnnotator.tsx` and `src/pages/AgreementDetail.tsx`
 
-### Problem
-The `heading` parameter in the Static Maps API only works where Google has 45-degree imagery. For most locations, the frozen snapshot ignores it — so the rotation the user set during navigation is lost, and buildings appear at an angle, making it impossible to draw aligned rectangles.
+---
 
-### Solution — Rotatable Rectangles
-Add a **shape rotation slider** (0–360°) to the annotate-phase toolbar. When drawing a rectangle, it renders rotated around its center by the current angle. This lets the user match the angle of any building regardless of map orientation.
+### Part 1 — Per-Shape Rotation Editing (PropertyAnnotator.tsx)
 
-### Changes
+**Problem**: The box angle slider only affects new rectangles. Users need to adjust rotation of already-drawn shapes.
 
-**New state**: `shapeRotation` (number, default 0) — the angle applied to new rectangles.
+**Changes**:
 
-**Pre-fill from map heading**: When transitioning from navigate → annotate, set `shapeRotation` to the map's heading value so it starts at the angle the user already chose.
+1. **New state**: `selectedShapeIndex: number | null` — tracks which drawn shape is selected
+2. **Hit testing on mouse down**: Before starting a new draw, check if the click lands inside an existing rect shape (using inverse-rotation point test). If yes, select it instead of drawing.
+3. **Slider syncs with selected shape**: When a shape is selected, the box angle slider shows its rotation. Moving the slider updates that shape's rotation in real time via `setShapes`.
+4. **Visual feedback**: Selected shape renders with a dashed highlight border in `redraw`
+5. **Deselect**: Clicking empty canvas or pressing Escape clears selection and resumes normal drawing mode
+6. **Freehand shapes**: Not selectable for rotation (they have no rotation property)
 
-**Shape data**: Add optional `rotation?: number` to the `Shape` interface. Store `shapeRotation` on each new rect shape.
+---
 
-**Drawing rotated rects** (in `redraw`): For rect shapes with a rotation value, use `ctx.save()` → `ctx.translate(centerX, centerY)` → `ctx.rotate(radians)` → draw rect centered at origin → `ctx.restore()`. Labels also render rotated.
+### Part 2 — Move Annotation Image Before Scope in PDF (AgreementDetail.tsx)
 
-**Freehand shapes**: Unaffected — they trace the building edge naturally.
+**Problem**: The annotation image currently renders after "SCOPE OF SERVICES". User wants it between client info and scope.
 
-**Toolbar addition**: Below the tool buttons in annotate phase, add a rotation slider (0–360°) with a `RotateCw` icon and degree readout, only visible when Rectangle tool is active. Include a "Reset" button to snap to 0°.
+**Changes in both `generatePDF` and `buildWebhookPayload`**:
 
-**Save logic**: Same rotation-aware drawing in the save render pass so the exported PNG matches what's on screen.
-
-### Toolbar layout (annotate phase)
-```text
-[Back to Map] | [Rectangle] [Freehand] | [colors] | [label] | [undo][clear][save]
-[🔄 Box angle: [====slider====] 45°  Reset]   ← only when Rectangle selected
+Move these lines:
+```typescript
+const annotImg = (agreement as any).annotation_image;
+if (annotImg) ctx.addAnnotationImage(annotImg);
 ```
+
+From **after** the scope/notes block to **before** `ctx.addHeading("SCOPE OF SERVICES")` — so the property map appears right after the client info block.
+
+No changes to `createPDFContext` or `addAnnotationImage` function itself needed — it already handles heading, image sizing, and page breaks correctly.
 
