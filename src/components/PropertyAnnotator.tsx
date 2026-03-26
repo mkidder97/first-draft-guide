@@ -114,6 +114,7 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
   const [isSaving, setIsSaving] = useState(false);
   const [shapeRotation, setShapeRotation] = useState(0);
   const [selectedShapeIndex, setSelectedShapeIndex] = useState<number | null>(null);
+  const [dragStart, setDragStart] = useState<Point | null>(null);
 
   // Geocode address
   useEffect(() => {
