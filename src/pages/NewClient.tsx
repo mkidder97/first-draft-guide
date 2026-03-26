@@ -145,28 +145,13 @@ export default function NewClient() {
 
       if (clientError) throw clientError;
 
-      // Calculate contract_end_date from duration string
-      const parseContractEndDate = (duration: string | null, createdAt: Date): string | null => {
-        if (!duration) return null;
-        const match = duration.match(/(\d+)\s*year/i);
-        if (match) {
-          const years = parseInt(match[1]);
-          const end = new Date(createdAt);
-          end.setFullYear(end.getFullYear() + years);
-          return end.toISOString().split("T")[0];
-        }
-        return null;
-      };
-
       const { data: insertedAgreements, error: agreementError } = await supabase
         .from("agreements")
         .insert({
           client_id: client.id,
           service_types: fields.serviceTypes,
-          duration: fields.duration || null,
           scope_notes: fields.scopeNotes || null,
           status: "draft",
-          contract_end_date: parseContractEndDate(fields.duration || null, new Date()),
         } as any)
         .select("id");
 
