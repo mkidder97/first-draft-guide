@@ -348,7 +348,6 @@ export default function AgreementDetail() {
   }
 
 
-
       {/* Property Map */}
       {satelliteUrl && (
         <Card className="mt-4">
