@@ -290,14 +290,29 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
             onLoad={onMapLoad}
             options={{ disableDefaultUI: false, zoomControl: true, mapTypeControl: false, streetViewControl: false, fullscreenControl: false, mapTypeId: "satellite", tilt: 0 }}
           />
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-            <Button onClick={handleStartAnnotating} className="gap-2 shadow-lg">
-              <MapPin className="h-4 w-4" />
-              Start Annotating
+        </div>
+        <div className="flex flex-wrap items-center gap-3 mt-2">
+          <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+            <RotateCw className="h-4 w-4 text-muted-foreground shrink-0" />
+            <Slider
+              value={[rotation]}
+              onValueChange={([v]) => setRotation(v)}
+              min={0}
+              max={360}
+              step={1}
+              className="flex-1"
+            />
+            <span className="text-xs text-muted-foreground w-8 text-right">{rotation}°</span>
+            <Button size="sm" variant="ghost" onClick={() => setRotation(0)} className="h-7 text-xs px-2">
+              Reset
             </Button>
           </div>
+          <Button onClick={handleStartAnnotating} className="gap-2 shadow-lg">
+            <MapPin className="h-4 w-4" />
+            Start Annotating
+          </Button>
         </div>
-        <p className="text-xs text-muted-foreground">Pan and zoom the map to find the right view, then click "Start Annotating" to begin drawing.</p>
+        <p className="text-xs text-muted-foreground">Pan, zoom, and rotate the map to find the right view, then click "Start Annotating" to begin drawing.</p>
       </div>
     );
   }
