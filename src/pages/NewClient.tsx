@@ -57,6 +57,7 @@ export default function NewClient() {
   const [contactSearch, setContactSearch] = useState("");
   const [satelliteImageUrl, setSatelliteImageUrl] = useState<string | null>(null);
   const [satelliteError, setSatelliteError] = useState(false);
+  const [nearestAirport, setNearestAirport] = useState<string | null>(null);
 
   const { data: contactResults } = useQuery({
     queryKey: ["contacts-search", contactSearch],
