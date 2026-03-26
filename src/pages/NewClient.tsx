@@ -54,6 +54,8 @@ export default function NewClient() {
   const [selectedImage, setSelectedImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
   const [contactMode, setContactMode] = useState<"select" | "create">("select");
   const [contactSearch, setContactSearch] = useState("");
+  const [satelliteImageUrl, setSatelliteImageUrl] = useState<string | null>(null);
+  const [satelliteError, setSatelliteError] = useState(false);
 
   const { data: contactResults } = useQuery({
     queryKey: ["contacts-search", contactSearch],
