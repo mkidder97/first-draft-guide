@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -9,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Sparkles, ImageIcon } from "lucide-react";
+import { Loader2, Sparkles, ImageIcon, Search } from "lucide-react";
 
 const SERVICE_TYPES = [
   { value: "annual_pm", label: "Annual PM" },
@@ -25,6 +26,9 @@ interface ClientFields {
   serviceTypes: string[];
   markets: string;
   scopeNotes: string;
+  contactId: string | null;
+  contactName: string;
+  contactEmail: string;
 }
 
 const emptyFields: ClientFields = {
@@ -33,6 +37,9 @@ const emptyFields: ClientFields = {
   serviceTypes: [],
   markets: "",
   scopeNotes: "",
+  contactId: null,
+  contactName: "",
+  contactEmail: "",
 };
 
 export default function NewClient() {
@@ -45,6 +52,22 @@ export default function NewClient() {
   const [submitError, setSubmitError] = useState("");
   const [inputMode, setInputMode] = useState<"text" | "screenshot">("text");
   const [selectedImage, setSelectedImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
+  const [contactMode, setContactMode] = useState<"select" | "create">("select");
+  const [contactSearch, setContactSearch] = useState("");
+
+  const { data: contactResults } = useQuery({
+    queryKey: ["contacts-search", contactSearch],
+    queryFn: async () => {
+      if (!contactSearch.trim()) return [];
+      const { data } = await supabase
+        .from("contacts")
+        .select("id, name, email, company")
+        .or(`name.ilike.%${contactSearch}%,company.ilike.%${contactSearch}%`)
+        .limit(8);
+      return data || [];
+    },
+    enabled: contactSearch.length > 1,
+  });
 
   // Auto-detect market from address
   useEffect(() => {
@@ -58,7 +81,7 @@ export default function NewClient() {
     }
   }, [fields.address]);
 
-  const updateField = (key: keyof ClientFields, value: string | string[]) => {
+  const updateField = (key: keyof ClientFields, value: string | string[] | null) => {
     setFields((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -90,6 +113,9 @@ export default function NewClient() {
         serviceTypes: Array.isArray(data.serviceTypes) ? data.serviceTypes : [],
         markets: data.markets || "",
         scopeNotes: data.scopeNotes || "",
+        contactId: null,
+        contactName: "",
+        contactEmail: "",
       });
     } catch (err: any) {
       console.error("Parse error:", err);
@@ -127,6 +153,9 @@ export default function NewClient() {
         serviceTypes: Array.isArray(data.serviceTypes) ? data.serviceTypes : [],
         markets: data.markets || "",
         scopeNotes: data.scopeNotes || "",
+        contactId: null,
+        contactName: "",
+        contactEmail: "",
       });
     } catch (err: any) {
       setParseError(err?.message || "Failed to parse screenshot. Please try again.");
@@ -145,12 +174,29 @@ export default function NewClient() {
     setSubmitError("");
 
     try {
+      // Resolve contact
+      let resolvedContactId = fields.contactId;
+
+      if (contactMode === "create" && fields.contactName && fields.contactEmail) {
+        const { data: newContact, error: contactError } = await supabase
+          .from("contacts")
+          .insert({
+            name: fields.contactName,
+            email: fields.contactEmail,
+          })
+          .select("id")
+          .single();
+        if (contactError) throw contactError;
+        resolvedContactId = newContact.id;
+      }
+
       const { data: client, error: clientError } = await supabase
         .from("clients")
         .insert({
           name: fields.clientName,
           address: fields.address,
           markets: fields.markets || null,
+          contact_id: resolvedContactId || null,
         })
         .select("id")
         .single();
@@ -279,7 +325,16 @@ export default function NewClient() {
           <CardTitle className="text-lg">Review &amp; Save</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <FieldsForm fields={fields} updateField={updateField} toggleServiceType={toggleServiceType} />
+          <FieldsForm
+            fields={fields}
+            updateField={updateField}
+            toggleServiceType={toggleServiceType}
+            contactMode={contactMode}
+            setContactMode={setContactMode}
+            contactSearch={contactSearch}
+            setContactSearch={setContactSearch}
+            contactResults={contactResults || []}
+          />
           {submitError && (
             <p className="text-sm text-destructive">{submitError}</p>
           )}
@@ -303,15 +358,34 @@ export default function NewClient() {
   );
 }
 
+interface ContactResult {
+  id: string;
+  name: string;
+  email: string;
+  company: string | null;
+}
+
 function FieldsForm({
   fields,
   updateField,
   toggleServiceType,
+  contactMode,
+  setContactMode,
+  contactSearch,
+  setContactSearch,
+  contactResults,
 }: {
   fields: ClientFields;
-  updateField: (key: keyof ClientFields, value: string | string[]) => void;
+  updateField: (key: keyof ClientFields, value: string | string[] | null) => void;
   toggleServiceType: (value: string) => void;
+  contactMode: "select" | "create";
+  setContactMode: (mode: "select" | "create") => void;
+  contactSearch: string;
+  setContactSearch: (s: string) => void;
+  contactResults: ContactResult[];
 }) {
+  const [showResults, setShowResults] = useState(false);
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="space-y-2">
@@ -330,6 +404,105 @@ function FieldsForm({
           placeholder="123 Main St, Miami FL 33101"
         />
       </div>
+
+      {/* Contact Person */}
+      <div className="space-y-2 sm:col-span-2">
+        <Label>Contact Person</Label>
+        {contactMode === "select" ? (
+          <div className="space-y-2">
+            {fields.contactId ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-foreground">
+                  {fields.contactName} ({fields.contactEmail})
+                </span>
+                <button
+                  type="button"
+                  className="text-xs text-muted-foreground underline hover:text-foreground"
+                  onClick={() => {
+                    updateField("contactId", null);
+                    updateField("contactName", "");
+                    updateField("contactEmail", "");
+                    setContactSearch("");
+                  }}
+                >
+                  Clear
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={contactSearch}
+                  onChange={(e) => {
+                    setContactSearch(e.target.value);
+                    setShowResults(true);
+                  }}
+                  onFocus={() => setShowResults(true)}
+                  onBlur={() => setTimeout(() => setShowResults(false), 200)}
+                  placeholder="Search by name or company…"
+                  className="pl-8"
+                />
+                {showResults && contactResults.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full rounded-md border border-border bg-popover shadow-md">
+                    {contactResults.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          updateField("contactId", c.id);
+                          updateField("contactName", c.name);
+                          updateField("contactEmail", c.email);
+                          setContactSearch("");
+                          setShowResults(false);
+                        }}
+                      >
+                        {c.name}{c.company ? ` — ${c.company}` : ""}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <button
+              type="button"
+              className="text-xs text-muted-foreground underline hover:text-foreground"
+              onClick={() => setContactMode("create")}
+            >
+              Create new instead
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Input
+                value={fields.contactName}
+                onChange={(e) => updateField("contactName", e.target.value)}
+                placeholder="Contact Name"
+              />
+              <Input
+                value={fields.contactEmail}
+                onChange={(e) => updateField("contactEmail", e.target.value)}
+                placeholder="Contact Email"
+                type="email"
+              />
+            </div>
+            <button
+              type="button"
+              className="text-xs text-muted-foreground underline hover:text-foreground"
+              onClick={() => {
+                setContactMode("select");
+                updateField("contactName", "");
+                updateField("contactEmail", "");
+              }}
+            >
+              Select existing instead
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="space-y-2">
         <Label>Markets</Label>
         <Input
