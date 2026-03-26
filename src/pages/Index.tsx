@@ -165,10 +165,14 @@ export default function Dashboard() {
   const filteredClients = useMemo(() => {
     if (!clients) return [];
     const q = search.toLowerCase();
-    return clients.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q)
-    );
-  }, [clients, search]);
+    return clients.filter((c) => {
+      const matchesSearch = c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q);
+      if (!matchesSearch) return false;
+      if (serviceFilter === "all") return true;
+      const a = c.agreements[0];
+      return a?.service_types?.includes(serviceFilter) ?? false;
+    });
+  }, [clients, search, serviceFilter]);
 
   const stats = [
     { label: "Total Clients", value: totalClients, icon: Users },
