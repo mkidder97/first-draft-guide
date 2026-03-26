@@ -61,6 +61,13 @@ type Agreement = {
   [key: string]: unknown;
 };
 
+type Contact = {
+  name: string;
+  email: string;
+  phone?: string;
+  title?: string;
+} | null;
+
 type Client = {
   id: string;
   name: string;
@@ -69,6 +76,7 @@ type Client = {
   building_count: number | null;
   created_at: string;
   agreements: Agreement[];
+  contacts: Contact;
 };
 
 export default function Dashboard() {
