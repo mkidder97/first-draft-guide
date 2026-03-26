@@ -81,7 +81,7 @@ export default function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("clients")
-        .select("*, agreements(*)")
+        .select("*, agreements(*), contacts(*)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Client[];
