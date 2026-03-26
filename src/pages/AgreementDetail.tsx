@@ -191,7 +191,7 @@ export default function AgreementDetail() {
   const [notes, setNotes] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [notesLoaded, setNotesLoaded] = useState(false);
-  const [satelliteUrl, setSatelliteUrl] = useState<string | null>(null);
+  
 
   const { data: agreement, isLoading, error } = useQuery({
     queryKey: ["agreement", id],
@@ -225,20 +225,6 @@ export default function AgreementDetail() {
     }
   }
 
-  useEffect(() => {
-    const clientData = agreement?.clients as { name: string; address: string } | null;
-    if (clientData?.address) {
-      if ((agreement as any).satellite_image_url) {
-        setSatelliteUrl((agreement as any).satellite_image_url);
-      } else {
-        const apiKey = "AIzaSyA5l3MGWK6jkedxdktSgH_AdmW4FnNFYm0";
-        if (apiKey) {
-          const encoded = encodeURIComponent(clientData.address);
-          setSatelliteUrl(`https://maps.googleapis.com/maps/api/staticmap?center=${encoded}&zoom=18&size=600x300&maptype=satellite&key=${apiKey}`);
-        }
-      }
-    }
-  }, [agreement]);
 
   useEffect(() => {
     if (agreement?.clients && !notesLoaded) {
@@ -628,7 +614,7 @@ export default function AgreementDetail() {
       </Card>
 
       {/* Property Map */}
-      {satelliteUrl && (
+      {client?.address && (
         <Card className="mt-4">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -639,7 +625,8 @@ export default function AgreementDetail() {
           <CardContent>
             <PropertyAnnotator
               agreementId={agreement.id}
-              satelliteImageUrl={satelliteUrl}
+              address={client.address}
+              existingSatelliteUrl={(agreement as any).satellite_image_url}
               existingAnnotations={(agreement as any).annotation_data || []}
             />
           </CardContent>
