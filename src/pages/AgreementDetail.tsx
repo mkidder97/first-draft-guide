@@ -250,7 +250,14 @@ export default function AgreementDetail() {
   }
 
 
-  function buildWebhookPayload() {
+  async function buildWebhookPayload() {
+    // Fresh fetch to get latest annotation_image
+    const { data: fresh } = await supabase
+      .from("agreements")
+      .select("*")
+      .eq("id", agreement!.id)
+      .maybeSingle();
+
     const ctx = createPDFContext();
     ctx.addHeader();
     ctx.addClientInfo([
@@ -261,7 +268,7 @@ export default function AgreementDetail() {
       
       ["SERVICE TYPE:", (agreement!.service_types || []).map(formatServiceType).join(", ")],
     ]);
-    const annotImg1 = (agreement as any).annotation_image;
+    const annotImg1 = fresh?.annotation_image || (agreement as any).annotation_image;
     if (annotImg1) ctx.addAnnotationImage(annotImg1);
     ctx.addHeading("SCOPE OF SERVICES");
     ctx.addBody((agreement!.service_types || []).map(st => SCOPE_PARAGRAPHS[st]).filter(Boolean).join("\n\n") || "Scope to be determined.");
