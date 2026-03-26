@@ -596,6 +596,37 @@ export default function AgreementDetail() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Internal Notes */}
+      <Card className="mt-4">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+            <span>🔒</span> Internal Notes
+            <span className="text-xs font-normal">(not included in PDF)</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Add internal notes about this client — follow-up reminders, key contacts, renewal context…"
+            className="min-h-[100px] text-sm"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleSaveNotes}
+            disabled={isSavingNotes}
+            className="gap-2"
+          >
+            {isSavingNotes ? (
+              <><Loader2 className="h-3 w-3 animate-spin" /> Saving…</>
+            ) : (
+              "Save Notes"
+            )}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
