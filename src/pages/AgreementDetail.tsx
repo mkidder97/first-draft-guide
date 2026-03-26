@@ -207,7 +207,8 @@ export default function AgreementDetail() {
     enabled: !!id,
   });
 
-  const client = agreement?.clients as { name: string; address: string } | null;
+  const client = agreement?.clients as { name: string; address: string; contacts?: { name: string; email: string; phone?: string; title?: string; company?: string } | null } | null;
+  const contact = client?.contacts || null;
   const canSign = agreement?.status === "draft" || agreement?.status === "sent";
 
   // ─── Reopen handler ─────────────────────────────────────────
