@@ -635,6 +635,7 @@ export default function AgreementDetail() {
               address={client.address}
               existingSatelliteUrl={(agreement as any).satellite_image_url}
               existingAnnotations={(agreement as any).annotation_data || []}
+              onSaved={() => queryClient.invalidateQueries({ queryKey: ["agreement", id] })}
             />
           </CardContent>
         </Card>
