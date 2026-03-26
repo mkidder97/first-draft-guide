@@ -191,7 +191,7 @@ export default function AgreementDetail() {
   const [notes, setNotes] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [notesLoaded, setNotesLoaded] = useState(false);
-  const [satelliteUrl, setSatelliteUrl] = useState<string | null>(null);
+  
 
   const { data: agreement, isLoading, error } = useQuery({
     queryKey: ["agreement", id],
