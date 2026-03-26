@@ -1,39 +1,25 @@
 
 
-## Fix: Annotation Image Missing from OneDrive PDF
+## Add Sample Contacts for Existing Clients
 
-### Root Cause
-The agreement data is fetched once when the page loads. When the user saves annotations in the PropertyAnnotator, the `annotation_image` is written to the database but the **react-query cache is never invalidated**. So when "Mark as Signed" fires `buildWebhookPayload()`, it uses the stale `agreement` object which has `annotation_image: null`.
+No code changes needed — this is a data seeding task using the database insert tool.
 
-### Solution
-Two changes in `src/pages/AgreementDetail.tsx`:
+### What will be created
 
-1. **Re-fetch agreement before building webhook PDF**: In `handleMarkSigned`, after the status update and cache invalidation, **await the refetch** so the `agreement` object has the latest `annotation_image` before calling `buildWebhookPayload()`. Alternatively, fetch the annotation_image directly from the DB inside `buildWebhookPayload`.
+**5 contacts** (one per client), with realistic property management names/emails:
 
-2. **Also invalidate after PropertyAnnotator saves**: Pass an `onSave` callback to `PropertyAnnotator` that invalidates the `["agreement", id]` query, so the cached agreement stays current even before signing.
+| Client | Contact Name | Email | Phone | Title |
+|--------|-------------|-------|-------|-------|
+| Northgate Industrial Partners | Mike Torres | mike.torres@northgateindustrial.com | (214) 555-0142 | Director of Operations |
+| Meridian Property Group | Jessica Chen | jessica.chen@meridianpg.com | (713) 555-0198 | Property Manager |
+| Pinnacle Asset Management | David Hartley | david.hartley@pinnacleam.com | (512) 555-0276 | VP of Facilities |
+| Coastal Industrial Partners | Rachel Kim | rachel.kim@coastalip.com | (281) 555-0334 | Asset Manager |
+| Summit Commercial REIT | Brian Caldwell | brian.caldwell@summitcreit.com | (469) 555-0411 | Director of Real Estate |
 
-### Preferred approach — fresh fetch in buildWebhookPayload
-Change `buildWebhookPayload` from a sync function to async. Before building the PDF, do a fresh single-row fetch of the agreement to get the latest `annotation_image`:
+### Steps
 
-```typescript
-async function buildWebhookPayload() {
-  // Fresh fetch to get latest annotation_image
-  const { data: fresh } = await supabase
-    .from("agreements")
-    .select("*")
-    .eq("id", agreement!.id)
-    .single();
-  
-  const annotImg = fresh?.annotation_image || (agreement as any).annotation_image;
-  // ... rest of PDF building, use annotImg instead of (agreement as any).annotation_image
-}
-```
+1. Insert 5 contacts into the `contacts` table
+2. Update each client's `contact_id` to link to its new contact
 
-Update callers (`handleMarkSigned`, retry handler) to `await buildWebhookPayload()`.
-
-### Also: onSave callback for PropertyAnnotator
-Pass `onSave={() => queryClient.invalidateQueries({ queryKey: ["agreement", id] })}` to the `<PropertyAnnotator>` component so the local cache refreshes after annotation save. This ensures "Generate PDF" (local download) also picks up the latest annotation.
-
-### Files changed
-- `src/pages/AgreementDetail.tsx` only
+These contacts will then be available for future email integration and automations — the agreement detail page already shows the linked contact info.
 
