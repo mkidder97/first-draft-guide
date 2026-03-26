@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Download, CheckCircle, RefreshCw, Send, Sparkles } from "lucide-react";
+import { ArrowLeft, Download, CheckCircle, RefreshCw, Send, Sparkles, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
