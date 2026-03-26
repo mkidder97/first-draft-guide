@@ -323,7 +323,7 @@ export default function AgreementDetail() {
   async function handleRetryWebhook() {
     setIsMarking(true);
     try {
-      await fireWebhook(buildWebhookPayload());
+      await fireWebhook(await buildWebhookPayload());
       setWebhookError(false);
       toast({ title: "Success", description: "Agreement marked as signed. OneDrive folder is being created." });
     } catch {
