@@ -21,7 +21,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Users, CheckCircle, Search, Plus, Trash2,
-  Building2, TrendingUp, AlertTriangle,
+  Building2, TrendingUp, AlertTriangle, Eye, Download,
 } from "lucide-react";
 import { format, differenceInDays, parseISO } from "date-fns";
 import { toast } from "@/hooks/use-toast";
