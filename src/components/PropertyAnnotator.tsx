@@ -75,7 +75,16 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
 
   const onMapLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
+    map.setTilt(0);
   }, []);
+
+  // Sync rotation to map heading
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map && phase === "navigate") {
+      map.setHeading(rotation);
+    }
+  }, [rotation, phase]);
 
   const handleStartAnnotating = () => {
     const map = mapRef.current;
