@@ -94,7 +94,8 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
     if (!c || z === undefined) return;
     const lat = c.lat();
     const lng = c.lng();
-    const url = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${z}&size=640x640&maptype=satellite&scale=2&key=${API_KEY}`;
+    const heading = map.getHeading() || 0;
+    const url = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${z}&size=640x640&maptype=satellite&scale=2&heading=${heading}&key=${API_KEY}`;
     setStaticUrl(url);
     setImgLoaded(false);
     setPhase("annotate");
