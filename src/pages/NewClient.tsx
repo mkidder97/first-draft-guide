@@ -46,6 +46,18 @@ export default function NewClient() {
   const [inputMode, setInputMode] = useState<"text" | "screenshot">("text");
   const [selectedImage, setSelectedImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
 
+  // Auto-detect market from address
+  useEffect(() => {
+    if (!fields.address) return;
+    const cityMatch = fields.address.match(/,\s*([A-Za-z\s]+),?\s*[A-Z]{2}\s*\d{5}?/);
+    if (cityMatch && cityMatch[1]) {
+      const detectedCity = cityMatch[1].trim();
+      if (detectedCity && !fields.markets) {
+        updateField("markets", detectedCity);
+      }
+    }
+  }, [fields.address]);
+
   const updateField = (key: keyof ClientFields, value: string | string[]) => {
     setFields((prev) => ({ ...prev, [key]: value }));
   };
