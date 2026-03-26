@@ -114,6 +114,7 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
   const [isSaving, setIsSaving] = useState(false);
   const [shapeRotation, setShapeRotation] = useState(0);
   const [selectedShapeIndex, setSelectedShapeIndex] = useState<number | null>(null);
+  const [dragStart, setDragStart] = useState<Point | null>(null);
 
   // Geocode address
   useEffect(() => {
@@ -256,6 +257,22 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
   const handleMouseDown = (e: React.MouseEvent) => {
     const pt = getCanvasPoint(e);
 
+    // If a shape is already selected, check if clicking on it to drag
+    if (selectedShapeIndex !== null) {
+      const s = shapes[selectedShapeIndex];
+      if (s.type === "rect" && s.points.length === 2) {
+        if (hitTestRect(pt, s.points[0], s.points[1], s.rotation || 0)) {
+          setDragStart(pt);
+          return; // start dragging
+        }
+      }
+      // Clicked outside selected shape — deselect and start drawing
+      setSelectedShapeIndex(null);
+      setIsDrawing(true);
+      setCurrentPoints([pt]);
+      return;
+    }
+
     // Hit-test existing rect shapes (reverse order = topmost first)
     for (let i = shapes.length - 1; i >= 0; i--) {
       const s = shapes[i];
@@ -267,15 +284,27 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
       }
     }
 
-    // Clicked empty area — deselect and start drawing
-    setSelectedShapeIndex(null);
+    // Clicked empty area — start drawing
     setIsDrawing(true);
     setCurrentPoints([pt]);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDrawing) return;
     const pt = getCanvasPoint(e);
+
+    // Dragging a selected shape
+    if (dragStart && selectedShapeIndex !== null) {
+      const dx = pt.x - dragStart.x;
+      const dy = pt.y - dragStart.y;
+      setShapes(prev => prev.map((s, i) => {
+        if (i !== selectedShapeIndex) return s;
+        return { ...s, points: s.points.map(p => ({ x: p.x + dx, y: p.y + dy })) };
+      }));
+      setDragStart(pt);
+      return;
+    }
+
+    if (!isDrawing) return;
     if (tool === "rect") {
       redraw(shapes, [currentPoints[0], pt]);
     } else {
@@ -286,6 +315,10 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
+    if (dragStart) {
+      setDragStart(null);
+      return;
+    }
     if (!isDrawing) return;
     setIsDrawing(false);
     const pt = getCanvasPoint(e);
@@ -491,7 +524,7 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
         />
         <canvas
           ref={canvasRef}
-          className="w-full cursor-crosshair"
+          className={`w-full ${selectedShapeIndex !== null ? "cursor-move" : "cursor-crosshair"}`}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
