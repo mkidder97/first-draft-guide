@@ -349,6 +349,24 @@ export default function AgreementDetail() {
 
 
 
+      {/* Property Map */}
+      {satelliteUrl && (
+        <Card className="mt-4">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              🗺 Property Map
+              <span className="text-xs font-normal text-muted-foreground">(annotate buildings in scope)</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PropertyAnnotator
+              agreementId={agreement.id}
+              satelliteImageUrl={satelliteUrl}
+              existingAnnotations={(agreement as any).annotation_data || []}
+            />
+          </CardContent>
+        </Card>
+      )}
 
   if (isLoading) {
     return <div className="p-8 text-muted-foreground">Loading agreement…</div>;
