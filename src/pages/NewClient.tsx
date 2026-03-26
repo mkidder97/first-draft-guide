@@ -416,6 +416,20 @@ function FieldsForm({
         />
       </div>
 
+      {satelliteImageUrl && !satelliteError && (
+        <div className="sm:col-span-2 space-y-1">
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <span>🛰</span> Aerial view
+          </p>
+          <img
+            src={satelliteImageUrl}
+            alt="Aerial satellite view of property"
+            className="w-full rounded-md border border-border object-cover h-52"
+            onError={onSatelliteError}
+          />
+        </div>
+      )}
+
       {/* Contact Person */}
       <div className="space-y-2 sm:col-span-2">
         <Label>Contact Person</Label>
