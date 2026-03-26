@@ -1,26 +1,21 @@
 
 
-## Add Internal Client Notes
+## Dashboard Enhancements: Service Filter, View Button, CSV Export
 
-### Change 1 — Database Migration
-```sql
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS notes text;
-```
+Three additive changes to `src/pages/Index.tsx` only. No other files touched.
 
-### Change 2 — AgreementDetail.tsx (4 edits)
+### Change 1 — Service Type Filter
+- **Line 22-25**: Add `Eye, Download` to lucide-react imports
+- **Line 75**: Add `const [serviceFilter, setServiceFilter] = useState("all");`
+- **Lines 163-170**: Replace `filteredClients` useMemo to include `serviceFilter` dependency and filter by `a?.service_types?.includes(serviceFilter)`
+- **Lines 248-257**: Replace standalone search `<div>` with flex row containing search input + Select dropdown for service types
 
-**Line 1**: Add `useEffect` to the React import:
-`import { useState, useEffect } from "react";`
+### Change 2 — View Button Column
+- **Line 309**: Add `<TableHead className="text-right">View</TableHead>` after the Delete column header
+- **Line 315**: Update `colSpan` from 9 to 10
+- **After line 412** (after Delete TableCell): Add View TableCell with Link + Button using Eye icon
 
-**Line 7**: Add `CardHeader, CardTitle` to card imports:
-`import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";`
-
-**After line 20** (toast import): Add Textarea import:
-`import { Textarea } from "@/components/ui/textarea";`
-
-**Inside the component** (after existing state declarations): Add three new state variables (`notes`, `isSavingNotes`, `notesLoaded`), the `useEffect` to populate notes from client data, and the `handleSaveNotes` async function.
-
-**After line 572** (closing `</Card>` of the main agreement card): Insert the Internal Notes card with Textarea, Save button (uses existing Loader2), and "not included in PDF" label.
-
-No other files or logic touched.
+### Change 3 — CSV Export
+- **Line 187**: Replace bare `<h1>` with flex row containing h1 + Export CSV button (Download icon)
+- **Before the return statement** (~line 184): Insert `exportToCSV` function that builds CSV from all clients and triggers download
 
