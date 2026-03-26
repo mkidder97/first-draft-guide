@@ -1,15 +1,26 @@
 
 
-## Add Status Timeline to AgreementDetail.tsx
+## Add Internal Client Notes
 
-### Single Change
-Insert the status timeline JSX block between **line 455** (end of client info grid `</div>`) and **line 457** (Scope comment). No new imports, no other modifications.
+### Change 1 — Database Migration
+```sql
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS notes text;
+```
 
-The timeline renders 3 milestone circles (Created, Sent, Signed) connected by horizontal lines, with green fill for completed steps and muted styling for pending ones. Dates display beneath each completed step.
+### Change 2 — AgreementDetail.tsx (4 edits)
 
-### Insertion Point
-- **After line 455**: `</div>` (closing the client info grid)
-- **Before line 457**: `{/* Scope */}`
+**Line 1**: Add `useEffect` to the React import:
+`import { useState, useEffect } from "react";`
 
-Paste the exact JSX provided by the user between these two lines.
+**Line 7**: Add `CardHeader, CardTitle` to card imports:
+`import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";`
+
+**After line 20** (toast import): Add Textarea import:
+`import { Textarea } from "@/components/ui/textarea";`
+
+**Inside the component** (after existing state declarations): Add three new state variables (`notes`, `isSavingNotes`, `notesLoaded`), the `useEffect` to populate notes from client data, and the `handleSaveNotes` async function.
+
+**After line 572** (closing `</Card>` of the main agreement card): Insert the Internal Notes card with Textarea, Save button (uses existing Loader2), and "not included in PDF" label.
+
+No other files or logic touched.
 
