@@ -538,6 +538,15 @@ function FieldsForm({
         </div>
       )}
 
+      {nearestAirport && (
+        <div className="sm:col-span-2 flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Nearest airport:</span>
+          <Badge variant="secondary" className="gap-1">
+            ✈ {nearestAirport}
+          </Badge>
+        </div>
+      )}
+
       {/* Contact Person */}
       <div className="space-y-2 sm:col-span-2">
         <Label>Contact Person</Label>
