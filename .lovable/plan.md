@@ -1,40 +1,39 @@
 
 
-## Contacts Schema, Page, Sidebar + Route
+## Wire Contacts into New Client Form
 
-### Change 1 — Database Migration
-Create `contacts` table and add `contact_id` FK to `clients`:
-```sql
-CREATE TABLE IF NOT EXISTS contacts (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  email text NOT NULL,
-  phone text,
-  company text,
-  title text,
-  notes text,
-  created_at timestamptz DEFAULT now()
-);
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact_id uuid REFERENCES contacts(id) ON DELETE SET NULL;
-ALTER TABLE contacts ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Authenticated users can manage contacts" ON contacts
-  FOR ALL USING (auth.role() = 'authenticated');
-```
+Single file: `src/pages/NewClient.tsx`
 
-### Change 2 — Create `src/pages/Contacts.tsx`
-New page querying `contacts` with a client count subquery. Features:
-- Table columns: Name, Email, Phone, Company, Title, Linked Properties, Created
-- Search input filtering by name/email/company
-- "New Contact" button toggles inline form at top (Name*, Email*, Phone, Company, Title)
-- Insert to `contacts` table on save, invalidate query
-- Empty state with "Add First Contact" CTA
-- Uses same UI patterns as existing pages (Card, Table, Input, Button, Badge, toast)
+### Change 1 — Interface & defaults
+- Add `contactId: string | null`, `contactName: string`, `contactEmail: string` to `ClientFields` interface (lines 22-28)
+- Add matching defaults to `emptyFields` (lines 30-36)
 
-### Change 3 — AppSidebar.tsx
-- Add `Contact` to lucide-react import (line 1)
-- Insert nav item `{ title: "Contacts", url: "/contacts", icon: Contact }` between "New Client" and "Clients" in navItems array
+### Change 2 — New imports
+- Add `useQuery` from `@tanstack/react-query` (line 1-2 area)
+- Add `{ Search as SearchIcon }` or reuse existing icons as needed
 
-### Change 4 — App.tsx
-- Add `import Contacts from "./pages/Contacts";` (line 14)
-- Add `<Route path="/contacts" element={<Contacts />} />` after the `/new-client` route (line 36)
+### Change 3 — Contact state in NewClient component
+- Add `contactMode` state: `useState<"select" | "create">("select")`
+- Add `contactSearch` state for the combobox query
+
+### Change 4 — Parse handlers clear contact fields
+- In `handleParse` setFields (line 87-93): add `contactId: null, contactName: "", contactEmail: ""`
+- In `handleParseScreenshot` setFields (line 124-130): same three fields
+
+### Change 5 — handleSubmit contact resolution
+- Before the clients insert (line 147-156): resolve contact ID — if `contactMode === "create"` and name+email provided, insert to `contacts` table first
+- Add `contact_id: resolvedContactId` to the clients insert
+
+### Change 6 — FieldsForm contact selector UI
+- Pass `contactMode`, `setContactMode`, `contactSearch`, `setContactSearch`, `contactResults` as additional props to `FieldsForm`
+- Add "Contact Person" section above Markets field (before line 333) with:
+  - **Select mode**: searchable input querying contacts by name/company (`.or(name.ilike, company.ilike)`), results as dropdown showing "Name — Company", clicking sets contactId/contactName/contactEmail
+  - **Create mode**: two inputs for Contact Name and Contact Email
+  - Toggle link between modes
+- The contact search query uses `useQuery` with `contactSearch` as key, enabled when length > 1, limit 8
+
+### Technical Notes
+- `useQuery` and `supabase` are already available; just need the react-query import added
+- Contact combobox is a simple Input + dropdown list (no need for cmdk/Command), keeping it lightweight
+- `FieldsForm` props type updated to include the new contact-related props
 
