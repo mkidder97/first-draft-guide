@@ -68,6 +68,7 @@ export type Database = {
         Row: {
           address: string
           building_count: number | null
+          contact_id: string | null
           created_at: string
           id: string
           markets: string | null
@@ -77,6 +78,7 @@ export type Database = {
         Insert: {
           address: string
           building_count?: number | null
+          contact_id?: string | null
           created_at?: string
           id?: string
           markets?: string | null
@@ -86,11 +88,53 @@ export type Database = {
         Update: {
           address?: string
           building_count?: number | null
+          contact_id?: string | null
           created_at?: string
           id?: string
           markets?: string | null
           name?: string
           notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contacts: {
+        Row: {
+          company: string | null
+          created_at: string | null
+          email: string
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          title: string | null
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string | null
+          email: string
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          title?: string | null
+        }
+        Update: {
+          company?: string | null
+          created_at?: string | null
+          email?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          title?: string | null
         }
         Relationships: []
       }
