@@ -16,6 +16,8 @@ export type Database = {
     Tables: {
       agreements: {
         Row: {
+          annotation_data: Json | null
+          annotation_image: string | null
           client_id: string
           contract_end_date: string | null
           created_at: string
@@ -23,12 +25,15 @@ export type Database = {
           frequency: string | null
           id: string
           pdf_url: string | null
+          satellite_image_url: string | null
           scope_notes: string | null
           service_types: string[]
           signed_at: string | null
           status: string
         }
         Insert: {
+          annotation_data?: Json | null
+          annotation_image?: string | null
           client_id: string
           contract_end_date?: string | null
           created_at?: string
@@ -36,12 +41,15 @@ export type Database = {
           frequency?: string | null
           id?: string
           pdf_url?: string | null
+          satellite_image_url?: string | null
           scope_notes?: string | null
           service_types?: string[]
           signed_at?: string | null
           status?: string
         }
         Update: {
+          annotation_data?: Json | null
+          annotation_image?: string | null
           client_id?: string
           contract_end_date?: string | null
           created_at?: string
@@ -49,6 +57,7 @@ export type Database = {
           frequency?: string | null
           id?: string
           pdf_url?: string | null
+          satellite_image_url?: string | null
           scope_notes?: string | null
           service_types?: string[]
           signed_at?: string | null
