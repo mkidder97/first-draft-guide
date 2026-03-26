@@ -354,6 +354,8 @@ export default function AgreementDetail() {
     ctx.addHeading("SCOPE OF SERVICES");
     ctx.addBody((agreement.service_types || []).map(st => SCOPE_PARAGRAPHS[st]).filter(Boolean).join("\n\n") || "Scope to be determined.");
     if (agreement.scope_notes) ctx.addBody("Additional Notes: " + agreement.scope_notes);
+    const annotImg = (agreement as any).annotation_image;
+    if (annotImg) ctx.addAnnotationImage(annotImg);
     ctx.addStandardTerms();
     ctx.addSignatures();
     const clientName = client?.name?.replace(/[^a-zA-Z0-9]/g, "_") || "agreement";
