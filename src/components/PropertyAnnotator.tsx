@@ -524,7 +524,7 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
         />
         <canvas
           ref={canvasRef}
-          className="w-full cursor-crosshair"
+          className={`w-full ${selectedShapeIndex !== null ? "cursor-move" : "cursor-crosshair"}`}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
