@@ -444,6 +444,7 @@ export default function NewClient() {
             satelliteImageUrl={satelliteImageUrl}
             onSatelliteError={() => setSatelliteError(true)}
             satelliteError={satelliteError}
+            nearestAirport={nearestAirport}
           />
           {submitError && (
             <p className="text-sm text-destructive">{submitError}</p>
