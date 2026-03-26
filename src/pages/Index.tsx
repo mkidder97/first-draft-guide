@@ -73,6 +73,7 @@ type Client = {
 
 export default function Dashboard() {
   const [search, setSearch] = useState("");
+  const [serviceFilter, setServiceFilter] = useState("all");
   const queryClient = useQueryClient();
 
   const { data: clients, isLoading } = useQuery({
