@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -23,9 +23,7 @@ interface ClientFields {
   clientName: string;
   address: string;
   serviceTypes: string[];
-  buildingCount: string;
   markets: string;
-  duration: string;
   scopeNotes: string;
 }
 
@@ -33,9 +31,7 @@ const emptyFields: ClientFields = {
   clientName: "",
   address: "",
   serviceTypes: [],
-  buildingCount: "",
   markets: "",
-  duration: "",
   scopeNotes: "",
 };
 
@@ -49,6 +45,18 @@ export default function NewClient() {
   const [submitError, setSubmitError] = useState("");
   const [inputMode, setInputMode] = useState<"text" | "screenshot">("text");
   const [selectedImage, setSelectedImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
+
+  // Auto-detect market from address
+  useEffect(() => {
+    if (!fields.address) return;
+    const cityMatch = fields.address.match(/,\s*([A-Za-z\s]+),?\s*[A-Z]{2}\s*\d{5}?/);
+    if (cityMatch && cityMatch[1]) {
+      const detectedCity = cityMatch[1].trim();
+      if (detectedCity && !fields.markets) {
+        updateField("markets", detectedCity);
+      }
+    }
+  }, [fields.address]);
 
   const updateField = (key: keyof ClientFields, value: string | string[]) => {
     setFields((prev) => ({ ...prev, [key]: value }));
@@ -80,9 +88,7 @@ export default function NewClient() {
         clientName: data.clientName || "",
         address: data.address || "",
         serviceTypes: Array.isArray(data.serviceTypes) ? data.serviceTypes : [],
-        buildingCount: data.buildingCount != null ? String(data.buildingCount) : "",
         markets: data.markets || "",
-        duration: data.duration || "",
         scopeNotes: data.scopeNotes || "",
       });
     } catch (err: any) {
@@ -119,9 +125,7 @@ export default function NewClient() {
         clientName: data.clientName || "",
         address: data.address || "",
         serviceTypes: Array.isArray(data.serviceTypes) ? data.serviceTypes : [],
-        buildingCount: data.buildingCount != null ? String(data.buildingCount) : "",
         markets: data.markets || "",
-        duration: data.duration || "",
         scopeNotes: data.scopeNotes || "",
       });
     } catch (err: any) {
@@ -146,7 +150,6 @@ export default function NewClient() {
         .insert({
           name: fields.clientName,
           address: fields.address,
-          building_count: fields.buildingCount ? parseInt(fields.buildingCount, 10) : null,
           markets: fields.markets || null,
         })
         .select("id")
@@ -154,28 +157,13 @@ export default function NewClient() {
 
       if (clientError) throw clientError;
 
-      // Calculate contract_end_date from duration string
-      const parseContractEndDate = (duration: string | null, createdAt: Date): string | null => {
-        if (!duration) return null;
-        const match = duration.match(/(\d+)\s*year/i);
-        if (match) {
-          const years = parseInt(match[1]);
-          const end = new Date(createdAt);
-          end.setFullYear(end.getFullYear() + years);
-          return end.toISOString().split("T")[0];
-        }
-        return null;
-      };
-
       const { data: insertedAgreements, error: agreementError } = await supabase
         .from("agreements")
         .insert({
           client_id: client.id,
           service_types: fields.serviceTypes,
-          duration: fields.duration || null,
           scope_notes: fields.scopeNotes || null,
           status: "draft",
-          contract_end_date: parseContractEndDate(fields.duration || null, new Date()),
         } as any)
         .select("id");
 
@@ -224,7 +212,7 @@ export default function NewClient() {
 
             <TabsContent value="text" className="space-y-4">
               <Textarea
-                placeholder="e.g. New client Acme Corp at 123 Main St, Miami FL 33101. They have 12 buildings across Miami and Dallas markets. They need annual PM and due diligence services, 2-year contract."
+                placeholder="e.g. New client Acme Corp at 123 Main St Houston TX 77001. Annual PM services for their Dallas and Houston properties."
                 className="min-h-[140px]"
                 value={aiMessage}
                 onChange={(e) => setAiMessage(e.target.value)}
@@ -343,16 +331,6 @@ function FieldsForm({
         />
       </div>
       <div className="space-y-2">
-        <Label>Building Count</Label>
-        <Input
-          type="number"
-          min="0"
-          value={fields.buildingCount}
-          onChange={(e) => updateField("buildingCount", e.target.value)}
-          placeholder="e.g. 12"
-        />
-      </div>
-      <div className="space-y-2">
         <Label>Markets</Label>
         <Input
           value={fields.markets}
@@ -373,14 +351,6 @@ function FieldsForm({
             </label>
           ))}
         </div>
-      </div>
-      <div className="space-y-2">
-        <Label>Duration</Label>
-        <Input
-          value={fields.duration}
-          onChange={(e) => updateField("duration", e.target.value)}
-          placeholder="e.g. 2 years"
-        />
       </div>
       <div className="space-y-2 sm:col-span-2">
         <Label>Scope Notes</Label>
