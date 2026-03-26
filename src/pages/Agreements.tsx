@@ -101,8 +101,9 @@ export default function Clients() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Address</TableHead>
+                   <TableHead>Client</TableHead>
+                   <TableHead>Contact</TableHead>
+                   <TableHead>Address</TableHead>
                   <TableHead>Markets</TableHead>
                   <TableHead>Buildings</TableHead>
                   <TableHead>Services</TableHead>
