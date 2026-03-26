@@ -1,25 +1,41 @@
 
 
-## Add Sample Contacts for Existing Clients
+## Surface Contacts Everywhere They Matter
 
-No code changes needed — this is a data seeding task using the database insert tool.
+The contacts data exists in the database and is linked to clients, but the app never displays it outside the standalone Contacts page. Here is a holistic plan to make contacts useful throughout the entire workflow.
 
-### What will be created
+### Current Gap
+- **Dashboard table** — no contact column
+- **Clients table** (`/agreements`) — no contact column  
+- **Agreement Detail page** — no contact info shown anywhere
+- **Agreement PDF** (local + OneDrive) — no contact name/email
+- **New Client form** — contact is selected but never confirmed visually after submission
 
-**5 contacts** (one per client), with realistic property management names/emails:
+### Changes (4 files)
 
-| Client | Contact Name | Email | Phone | Title |
-|--------|-------------|-------|-------|-------|
-| Northgate Industrial Partners | Mike Torres | mike.torres@northgateindustrial.com | (214) 555-0142 | Director of Operations |
-| Meridian Property Group | Jessica Chen | jessica.chen@meridianpg.com | (713) 555-0198 | Property Manager |
-| Pinnacle Asset Management | David Hartley | david.hartley@pinnacleam.com | (512) 555-0276 | VP of Facilities |
-| Coastal Industrial Partners | Rachel Kim | rachel.kim@coastalip.com | (281) 555-0334 | Asset Manager |
-| Summit Commercial REIT | Brian Caldwell | brian.caldwell@summitcreit.com | (469) 555-0411 | Director of Real Estate |
+**1. Agreement Detail page (`src/pages/AgreementDetail.tsx`)**
+- Fetch the contact alongside the client: update the query to join `clients(*, contacts(*))` via `contact_id`
+- Add a **Contact card** below the client info block showing name, email, phone, title, and company
+- Include contact name and email in the PDF client info block (both `generatePDF` and `buildWebhookPayload`) as two new rows: `CONTACT:` and `CONTACT EMAIL:`
+- This makes the contact visible on-screen AND in the generated/exported PDF
 
-### Steps
+**2. Dashboard (`src/pages/Index.tsx`)**
+- Update the query from `clients(*, agreements(*))` to `clients(*, agreements(*), contacts(*))` using the `contact_id` foreign key
+- Add a **Contact** column to the table between Client Name and Address, showing the contact name (or "—" if none)
+- Keep it minimal — just the name, not the full card
 
-1. Insert 5 contacts into the `contacts` table
-2. Update each client's `contact_id` to link to its new contact
+**3. Clients page (`src/pages/Agreements.tsx`)**  
+- Same query update: join contacts
+- Add a **Contact** column showing the contact name and email in a compact format: `Name (email)`
 
-These contacts will then be available for future email integration and automations — the agreement detail page already shows the linked contact info.
+**4. Agreement PDF — contact details in header block**
+- In `createPDFContext` → `addClientInfo`, the existing rows are CLIENT, PROPERTY ADDRESS, AGREEMENT DATE, DURATION, SERVICES
+- Add `CONTACT:` and `CONTACT EMAIL:` rows after CLIENT, sourced from the joined contact data
+- Applied in both `generatePDF` (local download) and `buildWebhookPayload` (OneDrive PDF)
+
+### Query approach
+The `clients` table has a `contact_id` column referencing `contacts.id`. The Supabase query `clients(*, contacts(*))` will automatically resolve this FK relationship without needing an explicit join. The contact object will appear as `client.contacts` (or null if no contact is linked).
+
+### No database changes needed
+All data and relationships already exist. This is purely a display/integration task.
 
