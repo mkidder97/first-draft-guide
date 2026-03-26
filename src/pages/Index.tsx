@@ -398,6 +398,7 @@ export default function Dashboard() {
                             client.name
                           )}
                         </TableCell>
+                        <TableCell className="text-muted-foreground text-xs">{client.contacts?.name || "—"}</TableCell>
                         <TableCell className="text-muted-foreground">{client.address}</TableCell>
                         <TableCell className="text-muted-foreground">{client.markets || "—"}</TableCell>
                         <TableCell className="text-muted-foreground">{client.building_count ?? "—"}</TableCell>

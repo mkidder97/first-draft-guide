@@ -118,6 +118,11 @@ export default function Clients() {
                   return (
                     <TableRow key={client.id}>
                       <TableCell className="font-medium">{client.name}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {(client as any).contacts?.name
+                          ? `${(client as any).contacts.name}${(client as any).contacts.email ? ` (${(client as any).contacts.email})` : ""}`
+                          : "—"}
+                      </TableCell>
                       <TableCell>{client.address}</TableCell>
                       <TableCell>{client.markets || "—"}</TableCell>
                       <TableCell>{client.building_count ?? "—"}</TableCell>
