@@ -158,7 +158,18 @@ function createPDFContext() {
     y += 50;
   }
 
-  return { doc, addHeader, addClientInfo, addHeading, addBody, addStandardTerms, addSignatures, checkPage, getY: () => y, setY: (v: number) => { y = v; } };
+  function addAnnotationImage(annotationImage: string) {
+    // annotationImage is a base64 data URI (image/png)
+    const imgData = annotationImage; // jsPDF accepts data URIs directly
+    const imgWidth = contentWidth;
+    const imgHeight = imgWidth * 0.5; // approximate 2:1 aspect ratio
+    checkPage(imgHeight + 40);
+    addHeading("PROPERTY MAP");
+    doc.addImage(imgData, "PNG", margin, y, imgWidth, imgHeight);
+    y += imgHeight + 14;
+  }
+
+  return { doc, addHeader, addClientInfo, addHeading, addBody, addStandardTerms, addSignatures, addAnnotationImage, checkPage, getY: () => y, setY: (v: number) => { y = v; } };
 }
 
 // ─── Webhook helper ───────────────────────────────────────────
