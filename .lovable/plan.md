@@ -1,39 +1,34 @@
 
 
-## Combined Plan: Rotatable Rectangles + PDF Annotation Image Placement
+## Add Drag-to-Move for Drawn Shapes
 
-Two files: `src/components/PropertyAnnotator.tsx` and `src/pages/AgreementDetail.tsx`
+Single file: `src/components/PropertyAnnotator.tsx`
 
----
+### Problem
+After drawing a shape, the user cannot reposition it. They can select it and rotate it, but there's no way to drag it to a different location.
 
-### Part 1 — Per-Shape Rotation Editing (PropertyAnnotator.tsx)
+### Solution
+When a shape is selected and the user clicks-and-drags on it, move the shape by updating all its points by the drag delta.
 
-**Problem**: The box angle slider only affects new rectangles. Users need to adjust rotation of already-drawn shapes.
+### Changes
 
-**Changes**:
+1. **New state**: `dragStart: Point | null` — tracks the mouse position at the start of a drag on a selected shape
 
-1. **New state**: `selectedShapeIndex: number | null` — tracks which drawn shape is selected
-2. **Hit testing on mouse down**: Before starting a new draw, check if the click lands inside an existing rect shape (using inverse-rotation point test). If yes, select it instead of drawing.
-3. **Slider syncs with selected shape**: When a shape is selected, the box angle slider shows its rotation. Moving the slider updates that shape's rotation in real time via `setShapes`.
-4. **Visual feedback**: Selected shape renders with a dashed highlight border in `redraw`
-5. **Deselect**: Clicking empty canvas or pressing Escape clears selection and resumes normal drawing mode
-6. **Freehand shapes**: Not selectable for rotation (they have no rotation property)
+2. **Update `handleMouseDown`**: When clicking on an already-selected shape, start a drag instead of re-selecting. Record the click point as `dragStart`.
 
----
+3. **Update `handleMouseMove`**: When `dragStart` is set (dragging a selected shape), calculate the delta from `dragStart` to current mouse position. Update all points of the selected shape by that delta. Update `dragStart` to current point (continuous dragging).
 
-### Part 2 — Move Annotation Image Before Scope in PDF (AgreementDetail.tsx)
+4. **Update `handleMouseUp`**: Clear `dragStart`.
 
-**Problem**: The annotation image currently renders after "SCOPE OF SERVICES". User wants it between client info and scope.
+5. **Cursor feedback**: When hovering over a shape, show `cursor-move` instead of `cursor-crosshair`. This requires tracking hover state or applying it when a shape is selected.
 
-**Changes in both `generatePDF` and `buildWebhookPayload`**:
+### Interaction flow
+- Click empty area → start drawing new shape
+- Click existing shape (nothing selected) → select it (highlight + sync rotation slider)
+- Click-and-drag on selected shape → move it
+- Click empty area while shape selected → deselect, start new drawing
+- Escape → deselect
 
-Move these lines:
-```typescript
-const annotImg = (agreement as any).annotation_image;
-if (annotImg) ctx.addAnnotationImage(annotImg);
-```
-
-From **after** the scope/notes block to **before** `ctx.addHeading("SCOPE OF SERVICES")` — so the property map appears right after the client info block.
-
-No changes to `createPDFContext` or `addAnnotationImage` function itself needed — it already handles heading, image sizing, and page breaks correctly.
+### Technical detail
+For rectangles, moving means adding delta to both corner points. For freehand, adding delta to every point in the array. The drag uses continuous delta (updating dragStart each mouse move) for smooth movement.
 
