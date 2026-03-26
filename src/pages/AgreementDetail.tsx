@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { PropertyAnnotator } from "@/components/PropertyAnnotator";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
