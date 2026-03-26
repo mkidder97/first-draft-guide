@@ -379,6 +379,9 @@ function FieldsForm({
   contactSearch,
   setContactSearch,
   contactResults,
+  satelliteImageUrl,
+  onSatelliteError,
+  satelliteError,
 }: {
   fields: ClientFields;
   updateField: (key: keyof ClientFields, value: string | string[] | null) => void;
@@ -388,6 +391,9 @@ function FieldsForm({
   contactSearch: string;
   setContactSearch: (s: string) => void;
   contactResults: ContactResult[];
+  satelliteImageUrl: string | null;
+  onSatelliteError: () => void;
+  satelliteError: boolean;
 }) {
   const [showResults, setShowResults] = useState(false);
 
