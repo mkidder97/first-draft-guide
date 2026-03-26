@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import NewClient from "./pages/NewClient";
 import Agreements from "./pages/Agreements";
 import AgreementDetail from "./pages/AgreementDetail";
+import Contacts from "./pages/Contacts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
