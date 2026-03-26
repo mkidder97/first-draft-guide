@@ -454,6 +454,50 @@ export default function AgreementDetail() {
             <InfoRow label="SERVICES" value={(agreement.service_types || []).map(formatServiceType).join(", ")} />
           </div>
 
+          {/* Status Timeline */}
+          <div className="flex items-center gap-0 py-2">
+            {[
+              {
+                label: "Created",
+                date: format(new Date(agreement.created_at), "MMM d, yyyy"),
+                done: true,
+              },
+              {
+                label: "Sent",
+                date: agreement.status === "sent" || agreement.status === "signed" ? "—" : null,
+                done: agreement.status === "sent" || agreement.status === "signed",
+              },
+              {
+                label: "Signed",
+                date: agreement.signed_at ? format(new Date(agreement.signed_at), "MMM d, yyyy") : null,
+                done: agreement.status === "signed",
+              },
+            ].map((step, i, arr) => (
+              <div key={step.label} className="flex items-center flex-1">
+                <div className="flex flex-col items-center gap-1 min-w-[80px]">
+                  <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors ${
+                    step.done
+                      ? "bg-green-600 border-green-600 text-white"
+                      : "bg-background border-muted-foreground/30 text-muted-foreground"
+                  }`}>
+                    {step.done ? "✓" : i + 1}
+                  </div>
+                  <span className={`text-xs font-semibold ${step.done ? "text-foreground" : "text-muted-foreground"}`}>
+                    {step.label}
+                  </span>
+                  {step.date && (
+                    <span className="text-xs text-muted-foreground">{step.date}</span>
+                  )}
+                </div>
+                {i < arr.length - 1 && (
+                  <div className={`flex-1 h-0.5 mx-2 ${
+                    arr[i + 1].done ? "bg-green-600" : "bg-muted-foreground/20"
+                  }`} />
+                )}
+              </div>
+            ))}
+          </div>
+
           {/* Scope */}
           <Section title="SCOPE OF SERVICES">
             {(agreement.service_types || []).length === 0 ? (
