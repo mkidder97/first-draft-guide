@@ -212,7 +212,7 @@ export default function NewClient() {
 
             <TabsContent value="text" className="space-y-4">
               <Textarea
-                placeholder="e.g. New client Acme Corp at 123 Main St, Miami FL 33101. They have 12 buildings across Miami and Dallas markets. They need annual PM and due diligence services, 2-year contract."
+                placeholder="e.g. New client Acme Corp at 123 Main St Houston TX 77001. Annual PM services for their Dallas and Houston properties."
                 className="min-h-[140px]"
                 value={aiMessage}
                 onChange={(e) => setAiMessage(e.target.value)}
