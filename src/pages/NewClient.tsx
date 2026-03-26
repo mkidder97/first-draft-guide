@@ -54,6 +54,8 @@ export default function NewClient() {
   const [selectedImage, setSelectedImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
   const [contactMode, setContactMode] = useState<"select" | "create">("select");
   const [contactSearch, setContactSearch] = useState("");
+  const [satelliteImageUrl, setSatelliteImageUrl] = useState<string | null>(null);
+  const [satelliteError, setSatelliteError] = useState(false);
 
   const { data: contactResults } = useQuery({
     queryKey: ["contacts-search", contactSearch],
@@ -79,6 +81,20 @@ export default function NewClient() {
         updateField("markets", detectedCity);
       }
     }
+  }, [fields.address]);
+
+  // Auto-load satellite image from address
+  useEffect(() => {
+    setSatelliteError(false);
+    if (!fields.address || fields.address.length < 10) {
+      setSatelliteImageUrl(null);
+      return;
+    }
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    if (!apiKey) return;
+    const encoded = encodeURIComponent(fields.address);
+    const url = `https://maps.googleapis.com/maps/api/staticmap?center=${encoded}&zoom=18&size=600x300&maptype=satellite&key=${apiKey}`;
+    setSatelliteImageUrl(url);
   }, [fields.address]);
 
   const updateField = (key: keyof ClientFields, value: string | string[] | null) => {
@@ -334,6 +350,9 @@ export default function NewClient() {
             contactSearch={contactSearch}
             setContactSearch={setContactSearch}
             contactResults={contactResults || []}
+            satelliteImageUrl={satelliteImageUrl}
+            onSatelliteError={() => setSatelliteError(true)}
+            satelliteError={satelliteError}
           />
           {submitError && (
             <p className="text-sm text-destructive">{submitError}</p>
@@ -374,6 +393,9 @@ function FieldsForm({
   contactSearch,
   setContactSearch,
   contactResults,
+  satelliteImageUrl,
+  onSatelliteError,
+  satelliteError,
 }: {
   fields: ClientFields;
   updateField: (key: keyof ClientFields, value: string | string[] | null) => void;
@@ -383,6 +405,9 @@ function FieldsForm({
   contactSearch: string;
   setContactSearch: (s: string) => void;
   contactResults: ContactResult[];
+  satelliteImageUrl: string | null;
+  onSatelliteError: () => void;
+  satelliteError: boolean;
 }) {
   const [showResults, setShowResults] = useState(false);
 
@@ -404,6 +429,20 @@ function FieldsForm({
           placeholder="123 Main St, Miami FL 33101"
         />
       </div>
+
+      {satelliteImageUrl && !satelliteError && (
+        <div className="sm:col-span-2 space-y-1">
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <span>🛰</span> Aerial view
+          </p>
+          <img
+            src={satelliteImageUrl}
+            alt="Aerial satellite view of property"
+            className="w-full rounded-md border border-border object-cover h-52"
+            onError={onSatelliteError}
+          />
+        </div>
+      )}
 
       {/* Contact Person */}
       <div className="space-y-2 sm:col-span-2">
