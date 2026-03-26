@@ -18,6 +18,7 @@ import {
 import { ArrowLeft, Download, CheckCircle, RefreshCw, Send, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
 import jsPDF from "jspdf";
 
 const SCOPE_PARAGRAPHS: Record<string, string> = {
