@@ -286,15 +286,30 @@ export default function Dashboard() {
         </Alert>
       )}
 
-      {/* Search */}
-      <div className="relative mb-4 max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search by client name or address…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
+      {/* Search + Filter */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by client name or address…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={serviceFilter} onValueChange={setServiceFilter}>
+          <SelectTrigger className="w-[180px] h-9 text-sm">
+            <SelectValue placeholder="All Services" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Services</SelectItem>
+            <SelectItem value="annual_pm">Annual PM</SelectItem>
+            <SelectItem value="due_diligence">Due Diligence</SelectItem>
+            <SelectItem value="survey">Survey</SelectItem>
+            <SelectItem value="storm">Storm Assessment</SelectItem>
+            <SelectItem value="construction_management">Construction Mgmt</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Section 4 — Client Table */}
