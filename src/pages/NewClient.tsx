@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Sparkles, ImageIcon, Search } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 const SERVICE_TYPES = [
   { value: "annual_pm", label: "Annual PM" },
