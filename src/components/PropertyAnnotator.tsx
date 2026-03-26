@@ -46,6 +46,7 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
   const [phase, setPhase] = useState<"navigate" | "annotate">(hasExisting ? "annotate" : "navigate");
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [staticUrl, setStaticUrl] = useState<string | null>(existingSatelliteUrl || null);
+  const [rotation, setRotation] = useState(0);
 
   // Drawing state
   const [shapes, setShapes] = useState<Shape[]>(existingAnnotations || []);
