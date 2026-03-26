@@ -1,21 +1,29 @@
 
 
-## Dashboard Enhancements: Service Filter, View Button, CSV Export
+## Form Cleanup + Auto-Detect Market
 
-Three additive changes to `src/pages/Index.tsx` only. No other files touched.
+Single file: `src/pages/NewClient.tsx`
 
-### Change 1 — Service Type Filter
-- **Line 22-25**: Add `Eye, Download` to lucide-react imports
-- **Line 75**: Add `const [serviceFilter, setServiceFilter] = useState("all");`
-- **Lines 163-170**: Replace `filteredClients` useMemo to include `serviceFilter` dependency and filter by `a?.service_types?.includes(serviceFilter)`
-- **Lines 248-257**: Replace standalone search `<div>` with flex row containing search input + Select dropdown for service types
+### Change 1 — Remove Building Count and Duration fields
 
-### Change 2 — View Button Column
-- **Line 309**: Add `<TableHead className="text-right">View</TableHead>` after the Delete column header
-- **Line 315**: Update `colSpan` from 9 to 10
-- **After line 412** (after Delete TableCell): Add View TableCell with Link + Button using Eye icon
+**Interface & defaults (lines 22-40):**
+- Remove `buildingCount: string;` and `duration: string;` from `ClientFields`
+- Remove `buildingCount: ""` and `duration: ""` from `emptyFields`
 
-### Change 3 — CSV Export
-- **Line 187**: Replace bare `<h1>` with flex row containing h1 + Export CSV button (Download icon)
-- **Before the return statement** (~line 184): Insert `exportToCSV` function that builds CSV from all clients and triggers download
+**handleParse (lines 79-87):** Remove `buildingCount` and `duration` lines from setFields
+
+**handleParseScreenshot (lines 118-126):** Remove same two lines from setFields
+
+**handleSubmit (lines 143-180):**
+- Line 149: Remove `building_count: fields.buildingCount ? parseInt(...)` from clients insert
+- Lines 157-168: Delete entire `parseContractEndDate` helper function
+- Lines 175, 178: Remove `duration` and `contract_end_date` from agreements insert
+
+**FieldsForm (lines 345-384):** Remove Building Count div (lines 345-354) and Duration div (lines 377-384)
+
+### Change 2 — Auto-detect market from address
+
+- **Line 1:** Change `import { useState }` to `import { useState, useEffect }`
+- **After line 51** (state declarations): Add useEffect that watches `fields.address`, extracts city via regex, and auto-fills `fields.markets` if empty
+- **Line 227:** Update Textarea placeholder to `"e.g. New client Acme Corp at 123 Main St Houston TX 77001. Annual PM services for their Dallas and Houston properties."`
 
