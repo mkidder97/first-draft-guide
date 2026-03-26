@@ -21,7 +21,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Users, CheckCircle, Search, Plus, Trash2,
-  Building2, TrendingUp, AlertTriangle,
+  Building2, TrendingUp, AlertTriangle, Eye, Download,
 } from "lucide-react";
 import { format, differenceInDays, parseISO } from "date-fns";
 import { toast } from "@/hooks/use-toast";
@@ -73,6 +73,7 @@ type Client = {
 
 export default function Dashboard() {
   const [search, setSearch] = useState("");
+  const [serviceFilter, setServiceFilter] = useState("all");
   const queryClient = useQueryClient();
 
   const { data: clients, isLoading } = useQuery({
@@ -164,10 +165,14 @@ export default function Dashboard() {
   const filteredClients = useMemo(() => {
     if (!clients) return [];
     const q = search.toLowerCase();
-    return clients.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q)
-    );
-  }, [clients, search]);
+    return clients.filter((c) => {
+      const matchesSearch = c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q);
+      if (!matchesSearch) return false;
+      if (serviceFilter === "all") return true;
+      const a = c.agreements[0];
+      return a?.service_types?.includes(serviceFilter) ?? false;
+    });
+  }, [clients, search, serviceFilter]);
 
   const stats = [
     { label: "Total Clients", value: totalClients, icon: Users },
@@ -182,9 +187,45 @@ export default function Dashboard() {
     },
   ];
 
+  function exportToCSV() {
+    if (!clients) return;
+    const rows = [
+      ["Client Name", "Address", "Markets", "Buildings", "Services", "Status", "Contract End", "Created"],
+      ...clients.map((c) => {
+        const a = c.agreements.sort(
+          (x, y) => new Date(y.created_at).getTime() - new Date(x.created_at).getTime()
+        )[0];
+        return [
+          c.name,
+          c.address,
+          c.markets || "",
+          c.building_count ?? "",
+          (a?.service_types || []).map((st) => SERVICE_LABELS[st] || st).join(", "),
+          a?.status || "",
+          a?.contract_end_date ? format(parseISO(a.contract_end_date), "MMM d, yyyy") : "",
+          format(new Date(c.created_at), "MMM d, yyyy"),
+        ];
+      }),
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `SRC_Clients_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div>
-      <h1 className="text-2xl font-bold text-foreground mb-6">Dashboard</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+        <Button variant="outline" size="sm" onClick={exportToCSV} className="gap-2">
+          <Download className="h-4 w-4" />
+          Export CSV
+        </Button>
+      </div>
 
       {/* Section 1 — KPI Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
@@ -245,15 +286,30 @@ export default function Dashboard() {
         </Alert>
       )}
 
-      {/* Search */}
-      <div className="relative mb-4 max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search by client name or address…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
+      {/* Search + Filter */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by client name or address…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={serviceFilter} onValueChange={setServiceFilter}>
+          <SelectTrigger className="w-[180px] h-9 text-sm">
+            <SelectValue placeholder="All Services" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Services</SelectItem>
+            <SelectItem value="annual_pm">Annual PM</SelectItem>
+            <SelectItem value="due_diligence">Due Diligence</SelectItem>
+            <SelectItem value="survey">Survey</SelectItem>
+            <SelectItem value="storm">Storm Assessment</SelectItem>
+            <SelectItem value="construction_management">Construction Mgmt</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Section 4 — Client Table */}
@@ -307,12 +363,13 @@ export default function Dashboard() {
                   <TableHead>Contract End</TableHead>
                   <TableHead>Update Status</TableHead>
                   <TableHead>Delete</TableHead>
+                  <TableHead className="text-right">View</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredClients.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                       No clients match your search.
                     </TableCell>
                   </TableRow>
@@ -408,6 +465,16 @@ export default function Dashboard() {
                                 </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {a && (
+                            <Link to={`/agreements/${a.id}`}>
+                              <Button variant="ghost" size="sm" className="gap-1.5 text-xs">
+                                <Eye className="h-3.5 w-3.5" />
+                                View
+                              </Button>
+                            </Link>
                           )}
                         </TableCell>
                       </TableRow>
