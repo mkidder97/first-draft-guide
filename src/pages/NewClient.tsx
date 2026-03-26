@@ -90,7 +90,7 @@ export default function NewClient() {
       setSatelliteImageUrl(null);
       return;
     }
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    const apiKey = "AIzaSyA5l3MGWK6jkedxdktSgH_AdmW4FnNFYm0";
     if (!apiKey) return;
     const encoded = encodeURIComponent(fields.address);
     const url = `https://maps.googleapis.com/maps/api/staticmap?center=${encoded}&zoom=18&size=600x300&maptype=satellite&key=${apiKey}`;
