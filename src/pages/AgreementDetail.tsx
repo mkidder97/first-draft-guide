@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,9 +15,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Download, CheckCircle, RefreshCw, Send, Sparkles } from "lucide-react";
+import { ArrowLeft, Download, CheckCircle, RefreshCw, Send, Sparkles, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
 import jsPDF from "jspdf";
 
 const SCOPE_PARAGRAPHS: Record<string, string> = {
@@ -175,6 +176,9 @@ export default function AgreementDetail() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isMarking, setIsMarking] = useState(false);
   const [webhookError, setWebhookError] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [notesLoaded, setNotesLoaded] = useState(false);
 
   const { data: agreement, isLoading, error } = useQuery({
     queryKey: ["agreement", id],
@@ -202,14 +206,36 @@ export default function AgreementDetail() {
       .eq("id", agreement.id);
     if (error) {
       toast({ title: "Error", description: "Failed to reopen agreement.", variant: "destructive" });
-      return;
+    } else {
+      queryClient.invalidateQueries({ queryKey: ["agreement", id] });
+      toast({ title: "Agreement reopened", description: "Status set back to Draft." });
     }
-    await queryClient.invalidateQueries({ queryKey: ["agreement", id] });
-    toast({ title: "Agreement reopened", description: "Status reset to Draft." });
+  }
+
+  useEffect(() => {
+    if (agreement?.clients && !notesLoaded) {
+      const clientData = agreement.clients as { name: string; address: string; notes?: string };
+      setNotes(clientData.notes || "");
+      setNotesLoaded(true);
+    }
+  }, [agreement, notesLoaded]);
+
+  async function handleSaveNotes() {
+    if (!agreement) return;
+    setIsSavingNotes(true);
+    const { error } = await supabase
+      .from("clients")
+      .update({ notes } as any)
+      .eq("id", (agreement as any).client_id);
+    if (error) {
+      toast({ title: "Error", description: "Failed to save notes.", variant: "destructive" });
+    } else {
+      toast({ title: "Notes saved" });
+    }
+    setIsSavingNotes(false);
   }
 
 
-  // ─── Webhook payload builder ─────────────────────────────────
   function buildWebhookPayload() {
     const ctx = createPDFContext();
     ctx.addHeader();
@@ -568,6 +594,37 @@ export default function AgreementDetail() {
               <SignatureLine label="Client" />
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Internal Notes */}
+      <Card className="mt-4">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+            <span>🔒</span> Internal Notes
+            <span className="text-xs font-normal">(not included in PDF)</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Add internal notes about this client — follow-up reminders, key contacts, renewal context…"
+            className="min-h-[100px] text-sm"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleSaveNotes}
+            disabled={isSavingNotes}
+            className="gap-2"
+          >
+            {isSavingNotes ? (
+              <><Loader2 className="h-3 w-3 animate-spin" /> Saving…</>
+            ) : (
+              "Save Notes"
+            )}
+          </Button>
         </CardContent>
       </Card>
     </div>

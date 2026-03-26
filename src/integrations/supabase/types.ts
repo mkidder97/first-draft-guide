@@ -72,6 +72,7 @@ export type Database = {
           id: string
           markets: string | null
           name: string
+          notes: string | null
         }
         Insert: {
           address: string
@@ -80,6 +81,7 @@ export type Database = {
           id?: string
           markets?: string | null
           name: string
+          notes?: string | null
         }
         Update: {
           address?: string
@@ -88,6 +90,7 @@ export type Database = {
           id?: string
           markets?: string | null
           name?: string
+          notes?: string | null
         }
         Relationships: []
       }
