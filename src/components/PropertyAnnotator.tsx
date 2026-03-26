@@ -3,7 +3,8 @@ import { GoogleMap, useJsApiLoader } from "@react-google-maps/api";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Undo2, Trash2, Save, Square, PenLine, MapPin } from "lucide-react";
+import { Undo2, Trash2, Save, Square, PenLine, MapPin, RotateCw } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 
 interface Point { x: number; y: number; }
 
@@ -45,6 +46,7 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
   const [phase, setPhase] = useState<"navigate" | "annotate">(hasExisting ? "annotate" : "navigate");
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [staticUrl, setStaticUrl] = useState<string | null>(existingSatelliteUrl || null);
+  const [rotation, setRotation] = useState(0);
 
   // Drawing state
   const [shapes, setShapes] = useState<Shape[]>(existingAnnotations || []);
@@ -73,7 +75,16 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
 
   const onMapLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
+    map.setTilt(0);
   }, []);
+
+  // Sync rotation to map heading
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map && phase === "navigate") {
+      map.setHeading(rotation);
+    }
+  }, [rotation, phase]);
 
   const handleStartAnnotating = () => {
     const map = mapRef.current;
@@ -83,7 +94,8 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
     if (!c || z === undefined) return;
     const lat = c.lat();
     const lng = c.lng();
-    const url = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${z}&size=640x640&maptype=satellite&scale=2&key=${API_KEY}`;
+    const heading = map.getHeading() || 0;
+    const url = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${z}&size=640x640&maptype=satellite&scale=2&heading=${heading}&key=${API_KEY}`;
     setStaticUrl(url);
     setImgLoaded(false);
     setPhase("annotate");
@@ -276,16 +288,31 @@ export function PropertyAnnotator({ agreementId, address, existingSatelliteUrl, 
             zoom={18}
             mapTypeId="satellite"
             onLoad={onMapLoad}
-            options={{ disableDefaultUI: false, zoomControl: true, mapTypeControl: false, streetViewControl: false, fullscreenControl: false }}
+            options={{ disableDefaultUI: false, zoomControl: true, mapTypeControl: false, streetViewControl: false, fullscreenControl: false, mapTypeId: "satellite", tilt: 0 }}
           />
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-            <Button onClick={handleStartAnnotating} className="gap-2 shadow-lg">
-              <MapPin className="h-4 w-4" />
-              Start Annotating
+        </div>
+        <div className="flex flex-wrap items-center gap-3 mt-2">
+          <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+            <RotateCw className="h-4 w-4 text-muted-foreground shrink-0" />
+            <Slider
+              value={[rotation]}
+              onValueChange={([v]) => setRotation(v)}
+              min={0}
+              max={360}
+              step={1}
+              className="flex-1"
+            />
+            <span className="text-xs text-muted-foreground w-8 text-right">{rotation}°</span>
+            <Button size="sm" variant="ghost" onClick={() => setRotation(0)} className="h-7 text-xs px-2">
+              Reset
             </Button>
           </div>
+          <Button onClick={handleStartAnnotating} className="gap-2 shadow-lg">
+            <MapPin className="h-4 w-4" />
+            Start Annotating
+          </Button>
         </div>
-        <p className="text-xs text-muted-foreground">Pan and zoom the map to find the right view, then click "Start Annotating" to begin drawing.</p>
+        <p className="text-xs text-muted-foreground">Pan, zoom, and rotate the map to find the right view, then click "Start Annotating" to begin drawing.</p>
       </div>
     );
   }
