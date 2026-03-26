@@ -331,16 +331,6 @@ function FieldsForm({
         />
       </div>
       <div className="space-y-2">
-        <Label>Building Count</Label>
-        <Input
-          type="number"
-          min="0"
-          value={fields.buildingCount}
-          onChange={(e) => updateField("buildingCount", e.target.value)}
-          placeholder="e.g. 12"
-        />
-      </div>
-      <div className="space-y-2">
         <Label>Markets</Label>
         <Input
           value={fields.markets}
