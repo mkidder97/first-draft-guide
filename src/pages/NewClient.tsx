@@ -23,9 +23,7 @@ interface ClientFields {
   clientName: string;
   address: string;
   serviceTypes: string[];
-  buildingCount: string;
   markets: string;
-  duration: string;
   scopeNotes: string;
 }
 
