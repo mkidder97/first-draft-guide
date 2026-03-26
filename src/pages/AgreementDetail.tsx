@@ -198,7 +198,7 @@ export default function AgreementDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("agreements")
-        .select("*, clients(*)")
+        .select("*, clients(*, contacts(*))")
         .eq("id", id!)
         .single();
       if (error) throw error;
